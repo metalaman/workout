@@ -4,6 +4,7 @@ import type {
   Program, ProgramDay, ProgramExercise,
   WorkoutSession, WorkoutSet,
   PersonalRecord, UserProfile, SocialPost,
+  Group, GroupMember, GroupMessage,
 } from '@/types'
 
 // ─── Programs ────────────────────────────────────────────────────────────────
@@ -240,4 +241,205 @@ export async function updateStreak(userId: string, profileId: string): Promise<U
     streakCount,
     lastWorkoutDate: now.toISOString(),
   })
+}
+
+// ─── Groups ──────────────────────────────────────────────────────────────────
+
+function generateInviteCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return code
+}
+
+export async function createGroup(
+  name: string,
+  description: string,
+  userId: string,
+  displayName: string,
+  avatarColor: string
+): Promise<Group> {
+  const inviteCode = generateInviteCode()
+  const doc = await databases.createDocument(DATABASE_ID, COLLECTION.GROUPS, ID.unique(), {
+    name,
+    description: description || '',
+    createdBy: userId,
+    avatarColor,
+    memberCount: 1,
+    inviteCode,
+  })
+  const group = doc as unknown as Group
+
+  // Auto-add creator as admin
+  await databases.createDocument(DATABASE_ID, COLLECTION.GROUP_MEMBERS, ID.unique(), {
+    groupId: group.$id,
+    userId,
+    displayName,
+    avatarColor,
+    role: 'admin',
+    joinedAt: new Date().toISOString(),
+  })
+
+  return group
+}
+
+export async function getGroup(groupId: string): Promise<Group> {
+  const doc = await databases.getDocument(DATABASE_ID, COLLECTION.GROUPS, groupId)
+  return doc as unknown as Group
+}
+
+export async function listUserGroups(userId: string): Promise<Group[]> {
+  // First find all group memberships
+  const memberships = await databases.listDocuments(DATABASE_ID, COLLECTION.GROUP_MEMBERS, [
+    Query.equal('userId', userId),
+    Query.limit(50),
+  ])
+  const groupIds = memberships.documents.map((d: any) => d.groupId as string)
+  if (groupIds.length === 0) return []
+
+  // Fetch each group
+  const groups: Group[] = []
+  for (const gid of groupIds) {
+    try {
+      const g = await getGroup(gid)
+      groups.push(g)
+    } catch {
+      // Group may have been deleted
+    }
+  }
+  return groups
+}
+
+export async function joinGroupByCode(
+  code: string,
+  userId: string,
+  displayName: string,
+  avatarColor: string
+): Promise<Group> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.GROUPS, [
+    Query.equal('inviteCode', code.toUpperCase()),
+    Query.limit(1),
+  ])
+  if (res.documents.length === 0) throw new Error('Invalid invite code')
+  const group = res.documents[0] as unknown as Group
+
+  // Check if already a member
+  const existing = await databases.listDocuments(DATABASE_ID, COLLECTION.GROUP_MEMBERS, [
+    Query.equal('groupId', group.$id),
+    Query.equal('userId', userId),
+    Query.limit(1),
+  ])
+  if (existing.documents.length > 0) return group // already joined
+
+  await databases.createDocument(DATABASE_ID, COLLECTION.GROUP_MEMBERS, ID.unique(), {
+    groupId: group.$id,
+    userId,
+    displayName,
+    avatarColor,
+    role: 'member',
+    joinedAt: new Date().toISOString(),
+  })
+
+  // Increment member count
+  await databases.updateDocument(DATABASE_ID, COLLECTION.GROUPS, group.$id, {
+    memberCount: (group.memberCount || 1) + 1,
+  })
+
+  return { ...group, memberCount: (group.memberCount || 1) + 1 }
+}
+
+export async function leaveGroup(groupId: string, userId: string): Promise<void> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.GROUP_MEMBERS, [
+    Query.equal('groupId', groupId),
+    Query.equal('userId', userId),
+    Query.limit(1),
+  ])
+  if (res.documents.length > 0) {
+    await databases.deleteDocument(DATABASE_ID, COLLECTION.GROUP_MEMBERS, res.documents[0].$id)
+    // Decrement member count
+    try {
+      const group = await getGroup(groupId)
+      await databases.updateDocument(DATABASE_ID, COLLECTION.GROUPS, groupId, {
+        memberCount: Math.max(0, (group.memberCount || 1) - 1),
+      })
+    } catch {
+      // ignore
+    }
+  }
+}
+
+export async function listGroupMembers(groupId: string): Promise<GroupMember[]> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.GROUP_MEMBERS, [
+    Query.equal('groupId', groupId),
+    Query.limit(100),
+  ])
+  return res.documents as unknown as GroupMember[]
+}
+
+export async function removeGroupMember(memberId: string, groupId: string): Promise<void> {
+  await databases.deleteDocument(DATABASE_ID, COLLECTION.GROUP_MEMBERS, memberId)
+  try {
+    const group = await getGroup(groupId)
+    await databases.updateDocument(DATABASE_ID, COLLECTION.GROUPS, groupId, {
+      memberCount: Math.max(0, (group.memberCount || 1) - 1),
+    })
+  } catch {
+    // ignore
+  }
+}
+
+// ─── Group Messages ──────────────────────────────────────────────────────────
+
+export async function sendGroupMessage(
+  groupId: string,
+  userId: string,
+  userName: string,
+  avatarColor: string,
+  text: string,
+  type: 'message' | 'workout_share' = 'message',
+  workoutData: string | null = null
+): Promise<GroupMessage> {
+  const doc = await databases.createDocument(DATABASE_ID, COLLECTION.GROUP_MESSAGES, ID.unique(), {
+    groupId,
+    userId,
+    userName,
+    avatarColor,
+    text: text || '',
+    type,
+    workoutData: workoutData || '',
+  })
+  return doc as unknown as GroupMessage
+}
+
+export async function listGroupMessages(groupId: string, limit = 50): Promise<GroupMessage[]> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.GROUP_MESSAGES, [
+    Query.equal('groupId', groupId),
+    Query.orderDesc('$createdAt'),
+    Query.limit(limit),
+  ])
+  return res.documents as unknown as GroupMessage[]
+}
+
+export async function shareWorkoutToGroups(
+  groupIds: string[],
+  workoutData: string,
+  text: string,
+  userId: string,
+  userName: string,
+  avatarColor: string
+): Promise<void> {
+  for (const groupId of groupIds) {
+    await sendGroupMessage(groupId, userId, userName, avatarColor, text, 'workout_share', workoutData)
+  }
+}
+
+export async function getLastGroupMessage(groupId: string): Promise<GroupMessage | null> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.GROUP_MESSAGES, [
+    Query.equal('groupId', groupId),
+    Query.orderDesc('$createdAt'),
+    Query.limit(1),
+  ])
+  return (res.documents[0] as unknown as GroupMessage) ?? null
 }

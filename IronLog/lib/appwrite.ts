@@ -19,6 +19,9 @@ export const COLLECTION = {
   PERSONAL_RECORDS: 'personal_records',
   SOCIAL_POSTS: 'social_posts',
   USER_PROFILES: 'user_profiles',
+  GROUPS: 'groups',
+  GROUP_MEMBERS: 'group_members',
+  GROUP_MESSAGES: 'group_messages',
 } as const
 
 export { client }

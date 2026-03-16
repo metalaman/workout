@@ -1,47 +1,117 @@
 import { create } from 'zustand'
-import type { SocialPost } from '@/types'
+import type { Group, GroupMember, GroupMessage } from '@/types/social'
 import * as db from '@/lib/database'
 
 interface SocialState {
-  posts: SocialPost[]
+  groups: Group[]
+  activeGroup: Group | null
+  messages: GroupMessage[]
+  members: GroupMember[]
   isLoading: boolean
+  isMessagesLoading: boolean
 
-  loadFeed: () => Promise<void>
-  shareWorkout: (post: Omit<SocialPost, '$id' | '$createdAt'>) => Promise<void>
-  toggleLike: (postId: string, userId: string) => Promise<void>
+  loadGroups: (userId: string) => Promise<void>
+  setActiveGroup: (group: Group | null) => void
+  loadMessages: (groupId: string) => Promise<void>
+  loadMembers: (groupId: string) => Promise<void>
+  createGroup: (name: string, description: string, userId: string, displayName: string, avatarColor: string) => Promise<Group>
+  joinGroupByCode: (code: string, userId: string, displayName: string, avatarColor: string) => Promise<Group>
+  sendMessage: (groupId: string, text: string, userId: string, userName: string, avatarColor: string) => Promise<void>
+  shareWorkout: (groupIds: string[], workoutData: string, text: string, userId: string, userName: string, avatarColor: string) => Promise<void>
+  leaveGroup: (groupId: string, userId: string) => Promise<void>
+  removeMember: (memberId: string, groupId: string) => Promise<void>
 }
 
 export const useSocialStore = create<SocialState>((set, get) => ({
-  posts: [],
+  groups: [],
+  activeGroup: null,
+  messages: [],
+  members: [],
   isLoading: false,
+  isMessagesLoading: false,
 
-  loadFeed: async () => {
+  loadGroups: async (userId: string) => {
     set({ isLoading: true })
     try {
-      const posts = await db.listSocialPosts(20)
-      set({ posts, isLoading: false })
+      const groups = await db.listUserGroups(userId)
+      set({ groups, isLoading: false })
     } catch {
       set({ isLoading: false })
     }
   },
 
-  shareWorkout: async (post) => {
+  setActiveGroup: (group: Group | null) => {
+    set({ activeGroup: group, messages: [], members: [] })
+  },
+
+  loadMessages: async (groupId: string) => {
+    set({ isMessagesLoading: true })
     try {
-      const newPost = await db.createSocialPost(post)
-      set((state) => ({ posts: [newPost, ...state.posts] }))
+      const messages = await db.listGroupMessages(groupId, 100)
+      set({ messages, isMessagesLoading: false })
     } catch {
-      // Silently fail
+      set({ isMessagesLoading: false })
     }
   },
 
-  toggleLike: async (postId: string, userId: string) => {
+  loadMembers: async (groupId: string) => {
     try {
-      const updated = await db.toggleLike(postId, userId)
+      const members = await db.listGroupMembers(groupId)
+      set({ members })
+    } catch {
+      // silently fail
+    }
+  },
+
+  createGroup: async (name, description, userId, displayName, avatarColor) => {
+    const group = await db.createGroup(name, description, userId, displayName, avatarColor)
+    set((state) => ({ groups: [group, ...state.groups] }))
+    return group
+  },
+
+  joinGroupByCode: async (code, userId, displayName, avatarColor) => {
+    const group = await db.joinGroupByCode(code, userId, displayName, avatarColor)
+    set((state) => ({ groups: [group, ...state.groups] }))
+    return group
+  },
+
+  sendMessage: async (groupId, text, userId, userName, avatarColor) => {
+    try {
+      const msg = await db.sendGroupMessage(groupId, userId, userName, avatarColor, text, 'message', null)
+      set((state) => ({ messages: [msg, ...state.messages] }))
+    } catch {
+      // silently fail
+    }
+  },
+
+  shareWorkout: async (groupIds, workoutData, text, userId, userName, avatarColor) => {
+    try {
+      await db.shareWorkoutToGroups(groupIds, workoutData, text, userId, userName, avatarColor)
+    } catch {
+      // silently fail
+    }
+  },
+
+  leaveGroup: async (groupId, userId) => {
+    try {
+      await db.leaveGroup(groupId, userId)
       set((state) => ({
-        posts: state.posts.map((p) => (p.$id === postId ? updated : p)),
+        groups: state.groups.filter((g) => g.$id !== groupId),
+        activeGroup: state.activeGroup?.$id === groupId ? null : state.activeGroup,
       }))
     } catch {
-      // Silently fail
+      // silently fail
+    }
+  },
+
+  removeMember: async (memberId, groupId) => {
+    try {
+      await db.removeGroupMember(memberId, groupId)
+      set((state) => ({
+        members: state.members.filter((m) => m.$id !== memberId),
+      }))
+    } catch {
+      // silently fail
     }
   },
 }))
