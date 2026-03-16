@@ -25,18 +25,28 @@ export default function CreateProgramScreen() {
   const [isCreating, setIsCreating] = useState(false)
 
   const handleCreate = async () => {
-    if (!name.trim() || !user?.$id) return
+    if (!name.trim() || !user?.$id || isCreating) return
     setIsCreating(true)
     try {
-      await createNewProgram(
-        name.trim(),
-        daysPerWeek,
-        parseInt(totalWeeks, 10) || 8,
-        user.$id
-      )
-      router.push('/(tabs)/program/edit-day?dayIndex=0&isNew=true' as Href)
+      // Race the Appwrite call against a 5s timeout to prevent hanging
+      await Promise.race([
+        createNewProgram(
+          name.trim(),
+          daysPerWeek,
+          parseInt(totalWeeks, 10) || 8,
+          user.$id
+        ),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 5000)
+        ),
+      ])
     } catch {
+      // createNewProgram already has a local fallback in its catch block,
+      // so the program is created locally even on failure
+    } finally {
       setIsCreating(false)
+      // Always navigate to day builder regardless of success/failure
+      router.push('/(tabs)/program/edit-day?dayIndex=0&isNew=true' as Href)
     }
   }
 
@@ -81,7 +91,7 @@ export default function CreateProgramScreen() {
               <Text style={styles.stepLabel}>STEP 1 OF 3</Text>
               <Text style={styles.stepTitle}>Name your program</Text>
               <Text style={styles.stepSubtitle}>
-                Give it a memorable name like &ldquo;Push Pull Legs&rdquo; or &ldquo;Upper Lower Split&rdquo;
+                Give it a memorable name like "Push Pull Legs" or "Upper Lower Split"
               </Text>
               <TextInput
                 style={styles.nameInput}

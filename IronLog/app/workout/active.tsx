@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, Href } from 'expo-router'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useWorkoutStore } from '@/stores/workout-store'
 import { useSessionStore } from '@/stores/session-store'
 import { useAuthStore } from '@/stores/auth-store'
@@ -10,6 +11,10 @@ import { formatDuration, calculate1RM } from '@/lib/utils'
 import { ExerciseIcon, MUSCLE_GROUP_COLORS } from '@/components/exercise-icon'
 import * as db from '@/lib/database'
 import type { PersonalRecord } from '@/types'
+import Svg, { Path } from 'react-native-svg'
+
+const TABS = ['Track', 'Overview', 'History', 'Notes'] as const
+type TabName = typeof TABS[number]
 
 function guessMuscleGroup(name: string): string {
   const n = name.toLowerCase()
@@ -34,16 +39,18 @@ export default function ActiveWorkoutScreen() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const restRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [activeTab, setActiveTab] = useState<TabName>('Track')
   const [editingSet, setEditingSet] = useState<number | null>(null)
   const [editWeight, setEditWeight] = useState('')
   const [editReps, setEditReps] = useState('')
+  const [workoutNotes, setWorkoutNotes] = useState('')
+  const weightRef = useRef<TextInput>(null)
+  const repsRef = useRef<TextInput>(null)
 
-  // Load PRs for 1RM display
   useEffect(() => {
     if (user?.$id) loadPRs(user.$id)
   }, [user?.$id])
 
-  // Build a map of exerciseId → estimated 1RM
   const prMap = useMemo(() => {
     const map = new Map<string, number>()
     for (const pr of personalRecords) {
@@ -96,6 +103,9 @@ export default function ActiveWorkoutScreen() {
   const currentMG = guessMuscleGroup(currentExercise.exerciseName)
   const currentColor = MUSCLE_GROUP_COLORS[currentMG] || Colors.dark.accent
   const current1RM = prMap.get(currentExercise.exerciseId) || 0
+  const completedSetsCount = currentExercise.sets.filter((s) => s.isCompleted).length
+  const totalSetsAllExercises = exercises.reduce((a, ex) => a + ex.sets.length, 0)
+  const completedSetsAll = exercises.reduce((a, ex) => a + ex.sets.filter((s) => s.isCompleted).length, 0)
 
   const get1RMPercent = (weight: number): number => {
     if (!current1RM || weight <= 0) return 0
@@ -110,7 +120,6 @@ export default function ActiveWorkoutScreen() {
     completeSet(currentExerciseIndex, setIndex, weight, reps)
     setEditingSet(null)
 
-    // Save set to backend
     if (user?.$id && sessionId) {
       try {
         await db.createWorkoutSet({
@@ -122,9 +131,7 @@ export default function ActiveWorkoutScreen() {
           reps,
           isCompleted: true,
         })
-      } catch {
-        // Continue
-      }
+      } catch { /* continue */ }
     }
 
     // Auto-start rest
@@ -132,10 +139,26 @@ export default function ActiveWorkoutScreen() {
       startRest(currentExercise.restSeconds)
     }
 
-    // Auto-advance
+    // Auto-advance to next exercise if all sets done
     const allDone = currentExercise.sets.every((s, i) => i === setIndex || s.isCompleted)
     if (allDone && currentExerciseIndex < exercises.length - 1) {
       setTimeout(() => nextExercise(), 500)
+    }
+  }
+
+  const handleCompleteExercise = () => {
+    // Complete all remaining sets with default values and move on
+    currentExercise.sets.forEach((set, i) => {
+      if (!set.isCompleted) {
+        const w = set.weight || set.previousWeight || 0
+        const r = set.reps || set.previousReps || 0
+        completeSet(currentExerciseIndex, i, w, r)
+      }
+    })
+    if (currentExerciseIndex < exercises.length - 1) {
+      nextExercise()
+    } else {
+      handleEndWorkout()
     }
   }
 
@@ -156,7 +179,7 @@ export default function ActiveWorkoutScreen() {
             completedAt: new Date().toISOString(),
             totalVolume,
             duration,
-            notes: '',
+            notes: workoutNotes,
           }
 
           if (user?.$id && sessionId && !sessionId.startsWith('local-')) {
@@ -166,7 +189,6 @@ export default function ActiveWorkoutScreen() {
                 totalVolume,
                 duration,
               })
-
               const newPRs: PersonalRecord[] = []
               for (const ex of exercises) {
                 for (const s of ex.sets) {
@@ -184,11 +206,9 @@ export default function ActiveWorkoutScreen() {
                   }
                 }
               }
-
               if (profile?.$id) {
                 try { await db.updateStreak(user.$id, profile.$id) } catch { /* continue */ }
               }
-
               setNewPRs(newPRs)
             } catch { /* continue */ }
           }
@@ -206,173 +226,317 @@ export default function ActiveWorkoutScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleEndWorkout}>
-          <Text style={styles.endButton}>← End</Text>
+        <TouchableOpacity onPress={handleEndWorkout} style={styles.endBtn} activeOpacity={0.7}>
+          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+            <Path d="M19 12H5M12 19l-7-7 7-7" stroke={Colors.dark.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+          <Text style={styles.endBtnText}>End</Text>
         </TouchableOpacity>
-        <Text style={styles.workoutName}>{programDayName}</Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.workoutName} numberOfLines={1}>{programDayName}</Text>
+          <Text style={styles.headerProgress}>{completedSetsAll}/{totalSetsAllExercises} sets</Text>
+        </View>
         <Text style={styles.timer}>{formatDuration(elapsedSeconds)}</Text>
       </View>
 
-      {/* Rest timer */}
+      {/* Tab bar — Caliber style */}
+      <View style={styles.tabBar}>
+        {TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => setActiveTab(tab)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {tab}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Rest timer overlay */}
       {isResting && (
         <View style={styles.restOverlay}>
           <Text style={styles.restLabel}>REST</Text>
           <Text style={styles.restTime}>{formatDuration(restTimerSeconds)}</Text>
-          <TouchableOpacity onPress={stopRest}>
-            <Text style={styles.skipRest}>Skip →</Text>
+          <TouchableOpacity onPress={stopRest} activeOpacity={0.7}>
+            <Text style={styles.skipRest}>Skip Rest →</Text>
           </TouchableOpacity>
         </View>
       )}
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Current exercise */}
-        <View style={[styles.currentExercise, { borderColor: currentColor }]}>
-          <View style={styles.exerciseHeader}>
-            <View style={styles.exerciseHeaderLeft}>
-              <View style={[styles.exIconSmall, { backgroundColor: `${currentColor}15` }]}>
-                <ExerciseIcon exerciseName={currentExercise.exerciseName} size={24} color={currentColor} />
-              </View>
-              <View>
-                <Text style={styles.exerciseCounter}>
-                  EXERCISE {currentExerciseIndex + 1}/{exercises.length}
-                </Text>
-                <Text style={styles.exerciseName}>{currentExercise.exerciseName}</Text>
-              </View>
-            </View>
-            <View style={styles.exerciseHeaderRight}>
-              {current1RM > 0 && (
-                <View style={[styles.rm1Badge, { backgroundColor: `${currentColor}20` }]}>
-                  <Text style={[styles.rm1Text, { color: currentColor }]}>1RM: {current1RM}</Text>
+        {activeTab === 'Track' && (
+          <>
+            {/* Current exercise header card */}
+            <View style={[styles.exerciseCard, { borderColor: `${currentColor}40` }]}>
+              <View style={styles.exerciseCardHeader}>
+                <View style={[styles.exIconLarge, { backgroundColor: `${currentColor}12` }]}>
+                  <ExerciseIcon exerciseName={currentExercise.exerciseName} size={40} color={currentColor} />
                 </View>
-              )}
-              <Text style={styles.restInfo}>{currentExercise.restSeconds}s rest</Text>
-            </View>
-          </View>
-
-          {/* Sets table */}
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, { width: 30 }]}>SET</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1 }]}>PREV</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1 }]}>LBS</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1 }]}>REPS</Text>
-            <Text style={[styles.tableHeaderCell, { width: 50 }]}>%1RM</Text>
-            <Text style={[styles.tableHeaderCell, { width: 30 }]}>✓</Text>
-          </View>
-
-          {currentExercise.sets.map((set, i) => {
-            const pct = set.isCompleted ? get1RMPercent(set.weight) : 0
-            return (
-              <View key={i} style={styles.setRow}>
-                <Text style={[styles.setCell, { width: 30, fontWeight: FontWeight.bold }]}>
-                  {set.setNumber}
-                </Text>
-                <Text style={[styles.setCell, { flex: 1, color: Colors.dark.textDark }]}>
-                  {set.previousWeight && set.previousReps ? `${set.previousWeight}×${set.previousReps}` : '-'}
-                </Text>
-                <View style={{ flex: 1 }}>
-                  {editingSet === i || !set.isCompleted ? (
-                    <TextInput
-                      style={[styles.setInput, set.isCompleted && styles.setInputCompleted]}
-                      value={editingSet === i ? editWeight : (set.weight ? set.weight.toString() : '')}
-                      placeholder={set.previousWeight?.toString() ?? '-'}
-                      placeholderTextColor={Colors.dark.textMuted}
-                      keyboardType="number-pad"
-                      onFocus={() => {
-                        setEditingSet(i)
-                        setEditWeight(set.weight ? set.weight.toString() : '')
-                        setEditReps(set.reps ? set.reps.toString() : '')
-                      }}
-                      onChangeText={setEditWeight}
-                    />
-                  ) : (
-                    <Text style={[styles.setCell, styles.setCellCompleted]}>{set.weight}</Text>
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  {editingSet === i || !set.isCompleted ? (
-                    <TextInput
-                      style={[styles.setInput, set.isCompleted && styles.setInputCompleted]}
-                      value={editingSet === i ? editReps : (set.reps ? set.reps.toString() : '')}
-                      placeholder={set.previousReps?.toString() ?? '-'}
-                      placeholderTextColor={Colors.dark.textMuted}
-                      keyboardType="number-pad"
-                      onChangeText={setEditReps}
-                    />
-                  ) : (
-                    <Text style={[styles.setCell, styles.setCellCompleted]}>{set.reps}</Text>
-                  )}
-                </View>
-                {/* 1RM % badge */}
-                <View style={{ width: 50, alignItems: 'center' }}>
-                  {set.isCompleted && pct > 0 ? (
-                    <View style={[styles.pctBadge, { backgroundColor: `${currentColor}20` }]}>
-                      <Text style={[styles.pctText, { color: currentColor }]}>{pct}%</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.pctDash}>—</Text>
-                  )}
-                </View>
-                <TouchableOpacity
-                  style={{ width: 30, alignItems: 'center' }}
-                  onPress={() => !set.isCompleted && handleCompleteSet(i)}
-                >
-                  <View style={[styles.checkBox, set.isCompleted && styles.checkBoxDone]}>
-                    {set.isCompleted && <Text style={styles.checkMark}>✓</Text>}
-                  </View>
-                </TouchableOpacity>
-              </View>
-            )
-          })}
-        </View>
-
-        {/* Completed */}
-        {completedExercises.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>COMPLETED</Text>
-            {completedExercises.map((ex, i) => {
-              const mg = guessMuscleGroup(ex.exerciseName)
-              const c = MUSCLE_GROUP_COLORS[mg] || Colors.dark.accent
-              const exPR = prMap.get(ex.exerciseId) || 0
-              const topWeight = Math.max(...ex.sets.filter((s) => s.isCompleted).map((s) => s.weight))
-              const topPct = exPR > 0 && topWeight > 0 ? Math.round((topWeight / exPR) * 100) : 0
-              return (
-                <View key={i} style={styles.completedCard}>
-                  <View style={[styles.completedIcon, { backgroundColor: `${c}15` }]}>
-                    <ExerciseIcon exerciseName={ex.exerciseName} size={20} color={c} />
-                  </View>
-                  <View style={styles.completedInfo}>
-                    <Text style={styles.completedName}>{ex.exerciseName}</Text>
-                    <Text style={styles.completedDetail}>
-                      {ex.sets.length} sets · {ex.sets[0]?.weight}-{ex.sets[ex.sets.length - 1]?.weight} lbs
+                <View style={styles.exerciseCardInfo}>
+                  <Text style={styles.exerciseCounter}>
+                    EXERCISE {currentExerciseIndex + 1} OF {exercises.length}
+                  </Text>
+                  <Text style={styles.exerciseName}>{currentExercise.exerciseName}</Text>
+                  <View style={styles.exerciseMetaRow}>
+                    <Text style={styles.exerciseMeta}>
+                      Reps: {currentExercise.sets[0]?.reps ?? '—'}
+                    </Text>
+                    <Text style={styles.exerciseMetaDot}>·</Text>
+                    <Text style={styles.exerciseMeta}>
+                      Rest: {Math.floor((currentExercise.restSeconds || 90) / 60)}:{((currentExercise.restSeconds || 90) % 60).toString().padStart(2, '0')} min
                     </Text>
                   </View>
-                  {topPct > 0 && (
-                    <View style={[styles.pctBadge, { backgroundColor: `${c}20` }]}>
-                      <Text style={[styles.pctText, { color: c }]}>{topPct}%</Text>
+                </View>
+              </View>
+              {/* Info row: 1RM badge + action buttons */}
+              <View style={styles.exerciseInfoRow}>
+                {current1RM > 0 && (
+                  <View style={[styles.rm1Badge, { backgroundColor: `${currentColor}20` }]}>
+                    <Text style={[styles.rm1Text, { color: currentColor }]}>1RM: {current1RM} lbs</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }} />
+                <View style={styles.actionBtns}>
+                  <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                      <Path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke={Colors.dark.textMuted} strokeWidth={1.5} strokeLinecap="round" />
+                    </Svg>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                      <Path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke={Colors.dark.textMuted} strokeWidth={1.5} strokeLinecap="round" />
+                    </Svg>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            {/* Set cards — Caliber style */}
+            {currentExercise.sets.map((set, i) => {
+              const pct = set.isCompleted ? get1RMPercent(set.weight) : 0
+              const isEditing = editingSet === i || !set.isCompleted
+              return (
+                <View key={i} style={[styles.setCard, set.isCompleted && styles.setCardCompleted]}>
+                  <View style={styles.setCardHeader}>
+                    <Text style={[styles.setLabel, set.isCompleted && { color: Colors.dark.accent }]}>
+                      Set {set.setNumber}
+                    </Text>
+                    {set.isCompleted && pct > 0 && (
+                      <View style={[styles.pctBadge, { backgroundColor: `${currentColor}20` }]}>
+                        <Text style={[styles.pctText, { color: currentColor }]}>{pct}% 1RM</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.setCardInputs}>
+                    {/* Reps */}
+                    <View style={styles.inputGroup}>
+                      {isEditing ? (
+                        <TextInput
+                          style={[styles.setInput, set.isCompleted && styles.setInputDone]}
+                          value={editingSet === i ? editReps : (set.reps ? set.reps.toString() : '')}
+                          placeholder={set.previousReps?.toString() ?? '8'}
+                          placeholderTextColor={Colors.dark.textDark}
+                          keyboardType="number-pad"
+                          onFocus={() => {
+                            setEditingSet(i)
+                            setEditWeight(set.weight ? set.weight.toString() : '')
+                            setEditReps(set.reps ? set.reps.toString() : '')
+                          }}
+                          onChangeText={setEditReps}
+                        />
+                      ) : (
+                        <Text style={styles.setValueDone}>{set.reps}</Text>
+                      )}
+                      <Text style={styles.inputLabel}>reps</Text>
+                      {set.previousReps != null && (
+                        <Text style={styles.lastHint}>Last: {set.previousReps} reps</Text>
+                      )}
                     </View>
-                  )}
-                  <Text style={styles.completedCheck}>✓</Text>
+                    {/* Weight */}
+                    <View style={styles.inputGroup}>
+                      {isEditing ? (
+                        <TextInput
+                          style={[styles.setInput, set.isCompleted && styles.setInputDone]}
+                          value={editingSet === i ? editWeight : (set.weight ? set.weight.toString() : '')}
+                          placeholder={set.previousWeight?.toString() ?? '135'}
+                          placeholderTextColor={Colors.dark.textDark}
+                          keyboardType="number-pad"
+                          onFocus={() => {
+                            setEditingSet(i)
+                            setEditWeight(set.weight ? set.weight.toString() : '')
+                            setEditReps(set.reps ? set.reps.toString() : '')
+                          }}
+                          onChangeText={setEditWeight}
+                        />
+                      ) : (
+                        <Text style={styles.setValueDone}>{set.weight}</Text>
+                      )}
+                      <Text style={styles.inputLabel}>lbs</Text>
+                      {set.previousWeight != null && (
+                        <Text style={styles.lastHint}>Last: {set.previousWeight} lbs</Text>
+                      )}
+                    </View>
+                    {/* Check button */}
+                    <TouchableOpacity
+                      style={[styles.checkBtn, set.isCompleted && styles.checkBtnDone]}
+                      onPress={() => !set.isCompleted && handleCompleteSet(i)}
+                      activeOpacity={0.7}
+                      disabled={set.isCompleted}
+                    >
+                      {set.isCompleted ? (
+                        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                          <Path d="M20 6L9 17l-5-5" stroke={Colors.dark.textOnAccent} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                        </Svg>
+                      ) : (
+                        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                          <Path d="M20 6L9 17l-5-5" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                        </Svg>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )
+            })}
+
+            {/* + Add Set */}
+            <TouchableOpacity style={styles.addSetBtn} activeOpacity={0.7}>
+              <Text style={styles.addSetText}>+ Add Set</Text>
+            </TouchableOpacity>
+
+            {/* Complete Exercise button */}
+            <View style={styles.completeExBtnWrap}>
+              <TouchableOpacity onPress={handleCompleteExercise} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={[Colors.dark.accent, Colors.dark.accentGreen]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={styles.completeExBtn}
+                >
+                  <Text style={styles.completeExText}>
+                    {currentExerciseIndex < exercises.length - 1
+                      ? `Complete Exercise (${completedSetsCount}/${currentExercise.sets.length})`
+                      : `Finish Workout (${completedSetsCount}/${currentExercise.sets.length})`
+                    }
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            {/* Up next */}
+            {upNextExercises.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>UP NEXT</Text>
+                {upNextExercises.map((ex, i) => {
+                  const mg = guessMuscleGroup(ex.exerciseName)
+                  const c = MUSCLE_GROUP_COLORS[mg] || Colors.dark.accent
+                  return (
+                    <View key={i} style={styles.upNextCard}>
+                      <View style={[styles.upNextIcon, { backgroundColor: `${c}12` }]}>
+                        <ExerciseIcon exerciseName={ex.exerciseName} size={20} color={c} />
+                      </View>
+                      <View style={styles.upNextInfo}>
+                        <Text style={styles.upNextName}>{ex.exerciseName}</Text>
+                        <Text style={styles.upNextSets}>{ex.sets.length} sets</Text>
+                      </View>
+                    </View>
+                  )
+                })}
+              </View>
+            )}
+
+            {/* Completed */}
+            {completedExercises.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>COMPLETED</Text>
+                {completedExercises.map((ex, i) => {
+                  const mg = guessMuscleGroup(ex.exerciseName)
+                  const c = MUSCLE_GROUP_COLORS[mg] || Colors.dark.accent
+                  const exPR = prMap.get(ex.exerciseId) || 0
+                  const topWeight = Math.max(...ex.sets.filter((s) => s.isCompleted).map((s) => s.weight))
+                  const topPct = exPR > 0 && topWeight > 0 ? Math.round((topWeight / exPR) * 100) : 0
+                  return (
+                    <View key={i} style={styles.completedCard}>
+                      <View style={[styles.completedIcon, { backgroundColor: `${c}15` }]}>
+                        <ExerciseIcon exerciseName={ex.exerciseName} size={20} color={c} />
+                      </View>
+                      <View style={styles.completedInfo}>
+                        <Text style={styles.completedName}>{ex.exerciseName}</Text>
+                        <Text style={styles.completedDetail}>
+                          {ex.sets.length} sets · {ex.sets[0]?.weight}-{ex.sets[ex.sets.length - 1]?.weight} lbs
+                        </Text>
+                      </View>
+                      {topPct > 0 && (
+                        <View style={[styles.pctBadge, { backgroundColor: `${c}20` }]}>
+                          <Text style={[styles.pctText, { color: c }]}>{topPct}%</Text>
+                        </View>
+                      )}
+                      <Text style={styles.completedCheck}>✓</Text>
+                    </View>
+                  )
+                })}
+              </View>
+            )}
+          </>
+        )}
+
+        {activeTab === 'Overview' && (
+          <View style={styles.overviewContent}>
+            <View style={styles.overviewRow}>
+              <View style={styles.overviewCard}>
+                <Text style={styles.overviewValue}>{exercises.length}</Text>
+                <Text style={styles.overviewLabel}>Exercises</Text>
+              </View>
+              <View style={styles.overviewCard}>
+                <Text style={[styles.overviewValue, { color: Colors.dark.accent }]}>{completedSetsAll}</Text>
+                <Text style={styles.overviewLabel}>Sets Done</Text>
+              </View>
+              <View style={styles.overviewCard}>
+                <Text style={styles.overviewValue}>{formatDuration(elapsedSeconds)}</Text>
+                <Text style={styles.overviewLabel}>Duration</Text>
+              </View>
+            </View>
+            <Text style={styles.overviewSectionTitle}>EXERCISE PROGRESS</Text>
+            {exercises.map((ex, i) => {
+              const done = ex.sets.filter((s) => s.isCompleted).length
+              const total = ex.sets.length
+              const mg = guessMuscleGroup(ex.exerciseName)
+              const c = MUSCLE_GROUP_COLORS[mg] || Colors.dark.accent
+              return (
+                <View key={i} style={styles.progressRow}>
+                  <View style={[styles.progressDot, { backgroundColor: i <= currentExerciseIndex ? c : Colors.dark.textDark }]} />
+                  <Text style={[styles.progressName, i < currentExerciseIndex && { color: Colors.dark.textSecondary }]}>
+                    {ex.exerciseName}
+                  </Text>
+                  <Text style={[styles.progressCount, { color: done === total ? Colors.dark.accent : Colors.dark.textMuted }]}>
+                    {done}/{total}
+                  </Text>
                 </View>
               )
             })}
           </View>
         )}
 
-        {/* Up next */}
-        {upNextExercises.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>UP NEXT</Text>
-            {upNextExercises.map((ex, i) => {
-              const mg = guessMuscleGroup(ex.exerciseName)
-              const c = MUSCLE_GROUP_COLORS[mg] || Colors.dark.accent
-              return (
-                <View key={i} style={styles.upNextRow}>
-                  <View style={[styles.upNextDot, { backgroundColor: c }]} />
-                  <Text style={styles.upNextName}>{ex.exerciseName}</Text>
-                  <Text style={styles.upNextSets}>{ex.sets.length}s</Text>
-                </View>
-              )
-            })}
+        {activeTab === 'History' && (
+          <View style={styles.historyContent}>
+            <Text style={styles.historyPlaceholder}>
+              Previous session data will appear here once you have workout history.
+            </Text>
+          </View>
+        )}
+
+        {activeTab === 'Notes' && (
+          <View style={styles.notesContent}>
+            <TextInput
+              style={styles.notesInput}
+              value={workoutNotes}
+              onChangeText={setWorkoutNotes}
+              placeholder="Add notes for this workout..."
+              placeholderTextColor={Colors.dark.textMuted}
+              multiline
+              textAlignVertical="top"
+            />
           </View>
         )}
 
@@ -387,60 +551,171 @@ const styles = StyleSheet.create({
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.xl },
   emptyText: { color: Colors.dark.textMuted, fontSize: FontSize.xxl },
   backLink: { color: Colors.dark.accent, fontSize: FontSize.xl, fontWeight: FontWeight.semibold },
+
+  // Header
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.xxl, paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
   },
-  endButton: { color: Colors.dark.accent, fontSize: FontSize.base, fontWeight: FontWeight.semibold },
+  endBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.xs,
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.full,
+  },
+  endBtnText: { color: Colors.dark.accent, fontSize: FontSize.base, fontWeight: FontWeight.semibold },
+  headerCenter: { alignItems: 'center', flex: 1, paddingHorizontal: Spacing.md },
   workoutName: { color: Colors.dark.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
-  timer: { color: Colors.dark.accent, fontSize: 22, fontWeight: FontWeight.bold, fontVariant: ['tabular-nums'] },
+  headerProgress: { color: Colors.dark.textMuted, fontSize: FontSize.sm },
+  timer: { color: Colors.dark.accent, fontSize: FontSize.title, fontWeight: FontWeight.bold, fontVariant: ['tabular-nums'] },
+
+  // Tab bar
+  tabBar: {
+    flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.dark.border,
+    paddingHorizontal: Spacing.md,
+  },
+  tab: {
+    paddingVertical: Spacing.lg, paddingHorizontal: Spacing.xl,
+    borderBottomWidth: 2, borderBottomColor: 'transparent',
+  },
+  tabActive: { borderBottomColor: Colors.dark.accent },
+  tabText: { fontSize: FontSize.base, fontWeight: FontWeight.semibold, color: Colors.dark.textMuted },
+  tabTextActive: { color: Colors.dark.text },
+
+  // Rest
   restOverlay: {
     backgroundColor: Colors.dark.accentSurface, borderWidth: 1, borderColor: Colors.dark.accentBorder,
-    marginHorizontal: Spacing.xxl, borderRadius: BorderRadius.xxl,
-    paddingVertical: Spacing.xl, alignItems: 'center', marginBottom: Spacing.lg,
+    marginHorizontal: Spacing.xl, borderRadius: BorderRadius.xxl,
+    paddingVertical: Spacing.xl, alignItems: 'center', marginVertical: Spacing.md,
   },
   restLabel: { color: Colors.dark.accent, fontSize: FontSize.sm, fontWeight: FontWeight.bold, letterSpacing: 2 },
   restTime: { color: Colors.dark.accent, fontSize: 36, fontWeight: FontWeight.extrabold, fontVariant: ['tabular-nums'] },
   skipRest: { color: Colors.dark.textMuted, fontSize: FontSize.base, marginTop: Spacing.xs },
+
   scroll: { flex: 1 },
-  currentExercise: {
-    marginHorizontal: Spacing.xxl, backgroundColor: Colors.dark.accentSurface,
-    borderWidth: 1, borderRadius: BorderRadius.xxl, padding: Spacing.xl,
+
+  // Current exercise header card
+  exerciseCard: {
+    marginHorizontal: Spacing.xl, marginTop: Spacing.lg,
+    backgroundColor: Colors.dark.surface, borderWidth: 1,
+    borderRadius: BorderRadius.xxl, padding: Spacing.xl, marginBottom: Spacing.md,
   },
-  exerciseHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    marginBottom: Spacing.md + 2,
+  exerciseCardHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.lg,
   },
-  exerciseHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flex: 1 },
-  exIconSmall: { width: 36, height: 36, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center' },
-  exerciseHeaderRight: { alignItems: 'flex-end', gap: 3 },
-  exerciseCounter: { color: Colors.dark.accent, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.5 },
-  exerciseName: { color: Colors.dark.text, fontSize: FontSize.xxl, fontWeight: FontWeight.bold, marginTop: 2 },
-  rm1Badge: { paddingHorizontal: Spacing.md, paddingVertical: 2, borderRadius: BorderRadius.full },
+  exIconLarge: {
+    width: 56, height: 56, borderRadius: BorderRadius.lg,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  exerciseCardInfo: { flex: 1 },
+  exerciseCounter: {
+    color: Colors.dark.accent, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.5,
+  },
+  exerciseName: {
+    color: Colors.dark.text, fontSize: FontSize.title, fontWeight: FontWeight.bold, marginTop: 2,
+  },
+  exerciseMetaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 3 },
+  exerciseMeta: { color: Colors.dark.textSecondary, fontSize: FontSize.base },
+  exerciseMetaDot: { color: Colors.dark.textMuted, fontSize: FontSize.sm },
+  exerciseInfoRow: {
+    flexDirection: 'row', alignItems: 'center', marginTop: Spacing.lg,
+  },
+  rm1Badge: {
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
   rm1Text: { fontSize: FontSize.sm, fontWeight: FontWeight.bold },
-  restInfo: { color: Colors.dark.textMuted, fontSize: FontSize.sm },
-  tableHeader: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
-  tableHeaderCell: { fontSize: 9, color: Colors.dark.textMuted, textAlign: 'center' },
-  setRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center', marginBottom: Spacing.xs },
-  setCell: { color: Colors.dark.textSecondary, fontSize: FontSize.base, textAlign: 'center' },
-  setCellCompleted: { color: Colors.dark.accent, fontWeight: FontWeight.semibold },
-  setInput: {
-    backgroundColor: Colors.dark.surfaceLight, borderRadius: BorderRadius.sm - 2,
-    paddingVertical: 5, color: Colors.dark.textMuted, fontSize: FontSize.base,
-    fontWeight: FontWeight.semibold, textAlign: 'center',
-  },
-  setInputCompleted: { backgroundColor: Colors.dark.accentSurfaceActive, color: Colors.dark.accent },
-  pctBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 1, borderRadius: BorderRadius.full },
-  pctText: { fontSize: 9, fontWeight: FontWeight.bold },
-  pctDash: { fontSize: FontSize.sm, color: Colors.dark.textMuted },
-  checkBox: {
-    width: 22, height: 22, borderRadius: BorderRadius.sm - 2,
+  actionBtns: { flexDirection: 'row', gap: Spacing.sm },
+  actionBtn: {
+    width: 32, height: 32, borderRadius: BorderRadius.full,
     backgroundColor: Colors.dark.surfaceLight, alignItems: 'center', justifyContent: 'center',
   },
-  checkBoxDone: { backgroundColor: Colors.dark.accent },
-  checkMark: { fontSize: FontSize.sm, color: Colors.dark.textOnAccent },
-  section: { paddingHorizontal: Spacing.xxl, marginTop: Spacing.lg },
+
+  // Set cards — Caliber style
+  setCard: {
+    marginHorizontal: Spacing.xl, marginBottom: Spacing.sm,
+    backgroundColor: Colors.dark.surface, borderWidth: 1, borderColor: Colors.dark.border,
+    borderRadius: BorderRadius.lg, padding: Spacing.xl,
+  },
+  setCardCompleted: {
+    borderColor: `${Colors.dark.accent}30`,
+    backgroundColor: Colors.dark.accentSurface,
+  },
+  setCardHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  setLabel: { fontSize: FontSize.base, fontWeight: FontWeight.bold, color: Colors.dark.textSecondary },
+  pctBadge: { paddingHorizontal: Spacing.md, paddingVertical: 2, borderRadius: BorderRadius.full },
+  pctText: { fontSize: FontSize.sm, fontWeight: FontWeight.bold },
+  setCardInputs: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.lg,
+  },
+  inputGroup: { flex: 1 },
+  setInput: {
+    backgroundColor: Colors.dark.surfaceLight, borderRadius: BorderRadius.sm,
+    paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
+    fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.dark.text,
+    textAlign: 'center',
+  },
+  setInputDone: {
+    backgroundColor: Colors.dark.accentSurfaceActive, color: Colors.dark.accent,
+  },
+  setValueDone: {
+    backgroundColor: Colors.dark.accentSurfaceActive, borderRadius: BorderRadius.sm,
+    paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
+    fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.dark.accent,
+    textAlign: 'center', overflow: 'hidden',
+  },
+  inputLabel: {
+    fontSize: FontSize.sm, color: Colors.dark.textMuted, textAlign: 'center',
+    marginTop: 3,
+  },
+  lastHint: {
+    fontSize: FontSize.xs, color: Colors.dark.textDark, textAlign: 'center',
+    marginTop: 2,
+  },
+  checkBtn: {
+    width: 44, height: 44, borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.surfaceLight, alignItems: 'center', justifyContent: 'center',
+    marginTop: 0,
+  },
+  checkBtnDone: { backgroundColor: Colors.dark.accent },
+
+  // Add set
+  addSetBtn: {
+    marginHorizontal: Spacing.xl, marginBottom: Spacing.lg, marginTop: Spacing.xs,
+    alignItems: 'center', paddingVertical: Spacing.lg,
+    borderWidth: 1, borderStyle: 'dashed', borderColor: Colors.dark.border,
+    borderRadius: BorderRadius.lg,
+  },
+  addSetText: { fontSize: FontSize.base, fontWeight: FontWeight.semibold, color: Colors.dark.textMuted },
+
+  // Complete exercise
+  completeExBtnWrap: { marginHorizontal: Spacing.xl, marginBottom: Spacing.xxl },
+  completeExBtn: {
+    alignItems: 'center', justifyContent: 'center',
+    paddingVertical: Spacing.xl, borderRadius: BorderRadius.lg,
+  },
+  completeExText: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.dark.textOnAccent },
+
+  // Sections
+  section: { paddingHorizontal: Spacing.xl, marginTop: Spacing.lg },
   sectionTitle: { color: Colors.dark.textMuted, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.5, marginBottom: Spacing.sm },
+
+  // Up next
+  upNextCard: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.dark.border,
+  },
+  upNextIcon: {
+    width: 32, height: 32, borderRadius: BorderRadius.sm,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  upNextInfo: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  upNextName: { color: Colors.dark.textSecondary, fontSize: FontSize.base, fontWeight: FontWeight.semibold },
+  upNextSets: { color: Colors.dark.textDark, fontSize: FontSize.sm },
+
+  // Completed
   completedCard: {
     backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: BorderRadius.md,
     padding: Spacing.lg, flexDirection: 'row', alignItems: 'center',
@@ -451,11 +726,38 @@ const styles = StyleSheet.create({
   completedName: { color: Colors.dark.textSecondary, fontSize: FontSize.base, fontWeight: FontWeight.semibold },
   completedDetail: { color: Colors.dark.textDark, fontSize: FontSize.sm },
   completedCheck: { color: Colors.dark.accent, fontSize: FontSize.xl },
-  upNextRow: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: Colors.dark.surface,
+
+  // Overview tab
+  overviewContent: { padding: Spacing.xl },
+  overviewRow: { flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.xxl },
+  overviewCard: {
+    flex: 1, backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg,
+    padding: Spacing.xl, alignItems: 'center', borderWidth: 1, borderColor: Colors.dark.border,
   },
-  upNextDot: { width: 6, height: 6, borderRadius: 3 },
-  upNextName: { color: Colors.dark.textMuted, fontSize: FontSize.base, flex: 1 },
-  upNextSets: { color: Colors.dark.textDark, fontSize: FontSize.sm },
+  overviewValue: { fontSize: FontSize.title, fontWeight: FontWeight.extrabold, color: Colors.dark.text },
+  overviewLabel: { fontSize: FontSize.sm, color: Colors.dark.textMuted, marginTop: 2 },
+  overviewSectionTitle: {
+    fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.dark.textMuted,
+    letterSpacing: 1.5, marginBottom: Spacing.md,
+  },
+  progressRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.dark.border,
+  },
+  progressDot: { width: 8, height: 8, borderRadius: 4 },
+  progressName: { fontSize: FontSize.xl, color: Colors.dark.text, flex: 1 },
+  progressCount: { fontSize: FontSize.base, fontWeight: FontWeight.bold },
+
+  // History tab
+  historyContent: { padding: Spacing.xl },
+  historyPlaceholder: { color: Colors.dark.textMuted, fontSize: FontSize.xl, textAlign: 'center', paddingTop: Spacing.xxxxl },
+
+  // Notes tab
+  notesContent: { padding: Spacing.xl },
+  notesInput: {
+    backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg,
+    borderWidth: 1, borderColor: Colors.dark.border,
+    padding: Spacing.xl, minHeight: 200,
+    fontSize: FontSize.xl, color: Colors.dark.text,
+  },
 })

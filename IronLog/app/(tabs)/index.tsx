@@ -34,14 +34,12 @@ function guessMuscleGroup(name: string): string {
   return 'Chest'
 }
 
-// Categorize exercise into Push/Pull/Legs/Core for balance
 function getTrainingCategory(name: string): 'push' | 'pull' | 'legs' | 'core' {
   const mg = guessMuscleGroup(name)
   if (mg === 'Chest' || mg === 'Shoulders') return 'push'
   if (mg === 'Back') return 'pull'
   if (mg === 'Legs') return 'legs'
   if (mg === 'Core') return 'core'
-  // Arms split
   const n = name.toLowerCase()
   if (n.includes('curl') || n.includes('bicep')) return 'pull'
   return 'push'
@@ -73,7 +71,7 @@ export default function HomeScreen() {
   const todaysDay = days[todaysDayIndex]
   const exerciseCount = todaysDay?.exercises?.length ?? 0
 
-  // Strength Score: sum of est1RMs for compound lifts
+  // Strength Score
   const strengthScore = useMemo(() => {
     if (personalRecords.length === 0) return { score: 0, delta: 0 }
     let total = 0
@@ -87,7 +85,7 @@ export default function HomeScreen() {
     return { score: Math.round(total), delta: 0 }
   }, [personalRecords])
 
-  // Strength Balance: volume per training category
+  // Strength Balance
   const strengthBalance = useMemo(() => {
     const cats = { push: 0, pull: 0, legs: 0, core: 0 }
     for (const pr of personalRecords) {
@@ -106,7 +104,7 @@ export default function HomeScreen() {
   // Weekly calendar
   const weekCalendar = useMemo(() => {
     const now = new Date()
-    const dayOfWeek = now.getDay() // 0=Sun
+    const dayOfWeek = now.getDay()
     const weekStart = new Date(now)
     weekStart.setDate(now.getDate() - dayOfWeek)
 
@@ -139,7 +137,7 @@ export default function HomeScreen() {
 
   const completedThisWeek = weekCalendar.filter((d) => d.hasStrength || d.hasCardio).length
 
-  // Build PR map for top lift
+  // PR map for top lift
   const prMap = useMemo(() => {
     const map = new Map<string, { est1RM: number; name: string }>()
     for (const pr of personalRecords) {
@@ -212,6 +210,16 @@ export default function HomeScreen() {
     router.push('/stats/photos' as Href)
   }
 
+  const handleCalendarDayPress = (day: typeof weekCalendar[0]) => {
+    if (day.hasStrength || day.hasCardio) {
+      router.push('/(tabs)/progress' as Href)
+    }
+  }
+
+  const handleRecentWorkoutPress = () => {
+    router.push('/(tabs)/progress' as Href)
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -238,28 +246,34 @@ export default function HomeScreen() {
           contentContainerStyle={styles.carouselContent}
           style={styles.carousel}
         >
-          {/* Strength Score Card */}
           <View style={[styles.carouselCard, { width: CARD_W }]}>
             <Text style={styles.carouselLabel}>STRENGTH SCORE</Text>
             <StrengthScoreGauge score={strengthScore.score} delta={strengthScore.delta} />
           </View>
-          {/* Strength Balance Card */}
           <View style={[styles.carouselCard, { width: CARD_W }]}>
             <StrengthBalanceGauge {...strengthBalance} />
           </View>
         </ScrollView>
 
-        {/* Weekly Calendar */}
+        {/* Weekly Calendar — tappable */}
         <View style={styles.weekSection}>
           <View style={styles.weekHeader}>
-            <Text style={styles.sectionTitle}>THIS WEEK</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/progress' as Href)} activeOpacity={0.7}>
+              <Text style={styles.sectionTitle}>THIS WEEK</Text>
+            </TouchableOpacity>
             <Text style={styles.weekCount}>
               {completedThisWeek}/{profile?.weeklyGoal ?? 5} days
             </Text>
           </View>
           <View style={styles.weekRow}>
             {weekCalendar.map((d, i) => (
-              <View key={i} style={styles.weekDay}>
+              <TouchableOpacity
+                key={i}
+                style={styles.weekDay}
+                onPress={() => handleCalendarDayPress(d)}
+                activeOpacity={d.hasStrength || d.hasCardio ? 0.6 : 1}
+                disabled={!d.hasStrength && !d.hasCardio}
+              >
                 <Text style={styles.weekDayLabel}>{DAYS_LABELS[i]}</Text>
                 <View
                   style={[
@@ -277,12 +291,11 @@ export default function HomeScreen() {
                     </Text>
                   )}
                 </View>
-                {/* Activity dots */}
                 <View style={styles.dotsRow}>
                   {d.hasStrength && <View style={[styles.dot, { backgroundColor: Colors.dark.accent }]} />}
                   {d.hasCardio && <View style={[styles.dot, { backgroundColor: Colors.dark.info }]} />}
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -321,7 +334,12 @@ export default function HomeScreen() {
                 const mg = guessMuscleGroup(pr.exerciseName)
                 const c = MUSCLE_GROUP_COLORS[mg] || Colors.dark.accent
                 return (
-                  <View key={pr.$id} style={[styles.prCard, { borderColor: `${c}30` }]}>
+                  <TouchableOpacity
+                    key={pr.$id}
+                    style={[styles.prCard, { borderColor: `${c}30` }]}
+                    onPress={() => router.push('/(tabs)/progress' as Href)}
+                    activeOpacity={0.7}
+                  >
                     <ExerciseIcon exerciseName={pr.exerciseName} size={20} color={c} />
                     <Text style={[styles.prValue, { color: c }]}>
                       {pr.estimated1RM || calculate1RM(pr.weight, pr.reps)}
@@ -329,29 +347,41 @@ export default function HomeScreen() {
                     <Text style={styles.prName} numberOfLines={1}>
                       {pr.exerciseName.length > 12 ? pr.exerciseName.substring(0, 12) + '…' : pr.exerciseName}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 )
               })}
             </ScrollView>
           </View>
         )}
 
-        {/* Recent Workouts */}
+        {/* Recent Workouts — tappable */}
         <View style={styles.recentSection}>
-          <Text style={styles.sectionTitle}>RECENT</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/progress' as Href)} activeOpacity={0.7}>
+            <Text style={styles.sectionTitle}>RECENT</Text>
+          </TouchableOpacity>
           {recentSessions.length > 0 ? (
             recentSessions.map((s, i) => (
-              <View key={i} style={styles.recentCard}>
+              <TouchableOpacity
+                key={i}
+                style={styles.recentCard}
+                onPress={handleRecentWorkoutPress}
+                activeOpacity={0.7}
+              >
                 <View>
                   <Text style={styles.recentName}>{s.programDayName}</Text>
                   <Text style={styles.recentDate}>
                     {s.completedAt ? getRelativeTime(s.completedAt) : 'In progress'}
                   </Text>
                 </View>
-                <Text style={styles.recentVolume}>
-                  {s.totalVolume > 0 ? `${formatVolume(s.totalVolume)} lbs` : '—'}
-                </Text>
-              </View>
+                <View style={styles.recentRight}>
+                  <Text style={styles.recentVolume}>
+                    {s.totalVolume > 0 ? `${formatVolume(s.totalVolume)} lbs` : '—'}
+                  </Text>
+                  <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                    <Path d="M9 18l6-6-6-6" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </View>
+              </TouchableOpacity>
             ))
           ) : (
             <>
@@ -360,13 +390,23 @@ export default function HomeScreen() {
                 { name: 'Leg Day', date: 'Mon', vol: '18,200 lbs' },
                 { name: 'Push Day A', date: 'Sat', vol: '10,800 lbs' },
               ].map((w, i) => (
-                <View key={i} style={styles.recentCard}>
+                <TouchableOpacity
+                  key={i}
+                  style={styles.recentCard}
+                  onPress={handleRecentWorkoutPress}
+                  activeOpacity={0.7}
+                >
                   <View>
                     <Text style={styles.recentName}>{w.name}</Text>
                     <Text style={styles.recentDate}>{w.date}</Text>
                   </View>
-                  <Text style={styles.recentVolume}>{w.vol}</Text>
-                </View>
+                  <View style={styles.recentRight}>
+                    <Text style={styles.recentVolume}>{w.vol}</Text>
+                    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                      <Path d="M9 18l6-6-6-6" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  </View>
+                </TouchableOpacity>
               ))}
             </>
           )}
@@ -479,7 +519,6 @@ const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontWeight: FontWeight.extrabold, fontSize: FontSize.xl, color: Colors.dark.textOnAccent },
 
-  // Carousel
   carousel: { marginBottom: Spacing.xl },
   carouselContent: { paddingHorizontal: Spacing.xxl, gap: 12 },
   carouselCard: {
@@ -491,7 +530,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5, marginBottom: Spacing.sm,
   },
 
-  // Weekly calendar
   weekSection: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.xl },
   weekHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
   weekCount: { color: Colors.dark.textSecondary, fontSize: FontSize.sm },
@@ -509,7 +547,6 @@ const styles = StyleSheet.create({
   dotsRow: { flexDirection: 'row', gap: 3, marginTop: 3, height: 4 },
   dot: { width: 4, height: 4, borderRadius: 2 },
 
-  // Today's workout
   todayContainer: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.xl },
   todayCard: {
     borderRadius: BorderRadius.xxl, padding: 18, flexDirection: 'row',
@@ -525,7 +562,6 @@ const styles = StyleSheet.create({
   playButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.dark.textOnAccent, alignItems: 'center', justifyContent: 'center' },
   playIcon: { fontSize: FontSize.xxl, color: Colors.dark.text },
 
-  // PRs
   prSection: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.xl },
   prRow: { gap: Spacing.sm },
   prCard: {
@@ -535,7 +571,6 @@ const styles = StyleSheet.create({
   prValue: { fontSize: FontSize.xl, fontWeight: FontWeight.extrabold },
   prName: { fontSize: 8, color: Colors.dark.textMuted, textAlign: 'center' },
 
-  // Recent
   recentSection: { paddingHorizontal: Spacing.xxl, flex: 1 },
   sectionTitle: { color: Colors.dark.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.bold, letterSpacing: 1.5, marginBottom: Spacing.md },
   recentCard: {
@@ -545,9 +580,9 @@ const styles = StyleSheet.create({
   },
   recentName: { color: Colors.dark.text, fontSize: FontSize.lg, fontWeight: FontWeight.semibold },
   recentDate: { color: Colors.dark.textMuted, fontSize: FontSize.sm, marginTop: 2 },
+  recentRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   recentVolume: { color: Colors.dark.accent, fontSize: FontSize.md, fontWeight: FontWeight.semibold },
 
-  // FAB
   fab: {
     position: 'absolute', bottom: 90, right: 20,
     width: 56, height: 56, borderRadius: 28,
@@ -560,7 +595,6 @@ const styles = StyleSheet.create({
   },
   fabIcon: { fontSize: 28, fontWeight: FontWeight.bold, color: Colors.dark.textOnAccent },
 
-  // Modal
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end',
   },
