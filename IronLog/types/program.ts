@@ -29,4 +29,5 @@ export interface Program {
   daysPerWeek: number
   currentWeek: number
   totalWeeks: number
+  color?: string
 }

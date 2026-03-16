@@ -86,7 +86,7 @@ interface ProgramState {
   saveDayToBackend: (dayIndex: number) => Promise<void>
   loadDefaultProgram: (userId: string) => void
   // Builder actions
-  createNewProgram: (name: string, daysPerWeek: number, totalWeeks: number, userId: string) => Promise<void>
+  createNewProgram: (name: string, daysPerWeek: number, totalWeeks: number, userId: string, color?: string) => Promise<void>
   addDay: (name: string) => Promise<void>
   removeDay: (dayIndex: number) => Promise<void>
   addExerciseToBuilderDay: (dayIndex: number, exercise: ProgramExercise) => void
@@ -207,7 +207,28 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     })
   },
 
-  createNewProgram: async (name: string, daysPerWeek: number, totalWeeks: number, userId: string) => {
+  createNewProgram: async (name: string, daysPerWeek: number, totalWeeks: number, userId: string, color?: string) => {
+    // Skip Appwrite entirely for dev/local users
+    const isLocal = userId === 'dev' || userId.startsWith('local')
+    if (isLocal) {
+      const localProgram: Program = {
+        $id: `local-${Date.now()}`,
+        userId,
+        name,
+        daysPerWeek,
+        totalWeeks,
+        currentWeek: 1,
+        color,
+      }
+      set({
+        builderProgram: localProgram,
+        builderDays: [],
+        builderActiveDayIndex: 0,
+        programs: [localProgram, ...get().programs],
+        currentProgram: localProgram,
+      })
+      return
+    }
     try {
       const program = await db.createProgram({
         userId,
@@ -216,18 +237,17 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         totalWeeks,
         currentWeek: 1,
       })
+      const programWithColor = { ...program, color }
       set({
-        builderProgram: program,
+        builderProgram: programWithColor,
         builderDays: [],
         builderActiveDayIndex: 0,
       })
-      // Also update programs list
       set((state) => ({
-        programs: [program, ...state.programs],
-        currentProgram: program,
+        programs: [programWithColor, ...state.programs],
+        currentProgram: programWithColor,
       }))
     } catch {
-      // Create locally if backend fails
       const localProgram: Program = {
         $id: `local-${Date.now()}`,
         userId,
@@ -235,6 +255,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         daysPerWeek,
         totalWeeks,
         currentWeek: 1,
+        color,
       }
       set({
         builderProgram: localProgram,
@@ -252,10 +273,28 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     if (!program?.$id) return
 
     const order = builderDays.length
+    const userId = program.userId ?? ''
+    const isLocal = userId === 'dev' || userId.startsWith('local') || program.$id.startsWith('local')
+
+    if (isLocal) {
+      const localDay: ProgramDay = {
+        $id: `local-day-${Date.now()}`,
+        programId: program.$id!,
+        userId,
+        name,
+        order,
+        exercises: [],
+      }
+      set((state) => ({
+        builderDays: [...state.builderDays, localDay],
+        days: [...state.days, localDay],
+      }))
+      return
+    }
     try {
       const day = await db.createProgramDay({
         programId: program.$id!,
-        userId: program.userId ?? '',
+        userId,
         name,
         order,
         exercises: [],
@@ -268,7 +307,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       const localDay: ProgramDay = {
         $id: `local-day-${Date.now()}`,
         programId: program.$id!,
-        userId: program.userId ?? '',
+        userId,
         name,
         order,
         exercises: [],
