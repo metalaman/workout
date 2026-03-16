@@ -32,8 +32,9 @@ export default function ActiveWorkoutScreen() {
   const { user, profile } = useAuthStore()
   const {
     programDayName, exercises, currentExerciseIndex, elapsedSeconds,
-    isResting, restTimerSeconds, sessionId,
-    completeSet, nextExercise, updateElapsed, startRest, stopRest, endWorkout, isActive,
+    isResting, restTimerSeconds, sessionId, isPaused,
+    completeSet, nextExercise, updateElapsed, startRest, stopRest,
+    pauseWorkout, resumeWorkout, endWorkout, isActive,
   } = useWorkoutStore()
   const { setLastCompleted, setNewPRs, addSession, loadRecent, personalRecords, loadPRs } = useSessionStore()
 
@@ -60,13 +61,14 @@ export default function ActiveWorkoutScreen() {
     return map
   }, [personalRecords])
 
-  // Main timer
+  // Main timer — pauses when isPaused
   useEffect(() => {
+    if (isPaused) return
     timerRef.current = setInterval(() => {
       updateElapsed(useWorkoutStore.getState().elapsedSeconds + 1)
     }, 1000)
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [])
+  }, [isPaused])
 
   // Rest timer
   useEffect(() => {
@@ -224,19 +226,13 @@ export default function ActiveWorkoutScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Header — clean, no back arrow */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleEndWorkout} style={styles.endBtn} activeOpacity={0.7}>
-          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-            <Path d="M19 12H5M12 19l-7-7 7-7" stroke={Colors.dark.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-          <Text style={styles.endBtnText}>End</Text>
-        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.workoutName} numberOfLines={1}>{programDayName}</Text>
           <Text style={styles.headerProgress}>{completedSetsAll}/{totalSetsAllExercises} sets</Text>
         </View>
-        <Text style={styles.timer}>{formatDuration(elapsedSeconds)}</Text>
+        <Text style={[styles.timer, isPaused && styles.timerPaused]}>{formatDuration(elapsedSeconds)}</Text>
       </View>
 
       {/* Tab bar — Caliber style */}
@@ -540,8 +536,42 @@ export default function ActiveWorkoutScreen() {
           </View>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Bottom control bar */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          style={styles.bottomEndBtn}
+          onPress={handleEndWorkout}
+          activeOpacity={0.7}
+        >
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Path d="M18 6L6 18M6 6l12 12" stroke="#ff4444" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </TouchableOpacity>
+
+        <View style={styles.bottomTimerContainer}>
+          <Text style={styles.bottomTimerLabel}>{isPaused ? 'PAUSED' : 'ELAPSED'}</Text>
+          <Text style={[styles.bottomTimer, isPaused && styles.bottomTimerPaused]}>{formatDuration(elapsedSeconds)}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.bottomPauseBtn, isPaused && styles.bottomResumeBtnActive]}
+          onPress={() => isPaused ? resumeWorkout() : pauseWorkout()}
+          activeOpacity={0.7}
+        >
+          {isPaused ? (
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path d="M5 3l14 9-14 9V3z" fill={Colors.dark.textOnAccent} />
+            </Svg>
+          ) : (
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path d="M6 4h4v16H6V4zM14 4h4v16h-4V4z" fill={Colors.dark.text} />
+            </Svg>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   )
 }
@@ -557,16 +587,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
   },
-  endBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.xs,
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
-    backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.full,
-  },
-  endBtnText: { color: Colors.dark.accent, fontSize: FontSize.base, fontWeight: FontWeight.semibold },
-  headerCenter: { alignItems: 'center', flex: 1, paddingHorizontal: Spacing.md },
+  headerCenter: { flex: 1 },
   workoutName: { color: Colors.dark.text, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
   headerProgress: { color: Colors.dark.textMuted, fontSize: FontSize.sm },
   timer: { color: Colors.dark.accent, fontSize: FontSize.title, fontWeight: FontWeight.bold, fontVariant: ['tabular-nums'] },
+  timerPaused: { opacity: 0.4 },
 
   // Tab bar
   tabBar: {
@@ -759,5 +784,55 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.dark.border,
     padding: Spacing.xl, minHeight: 200,
     fontSize: FontSize.xl, color: Colors.dark.text,
+  },
+
+  // Bottom control bar
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    backgroundColor: Colors.dark.surface,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  bottomEndBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 68, 68, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomTimerContainer: {
+    alignItems: 'center',
+  },
+  bottomTimerLabel: {
+    fontSize: 9,
+    fontWeight: FontWeight.bold,
+    color: Colors.dark.textMuted,
+    letterSpacing: 1.5,
+  },
+  bottomTimer: {
+    fontSize: FontSize.title,
+    fontWeight: FontWeight.extrabold,
+    color: Colors.dark.text,
+    fontVariant: ['tabular-nums'] as const,
+  },
+  bottomTimerPaused: {
+    color: Colors.dark.textMuted,
+  },
+  bottomPauseBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.dark.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomResumeBtnActive: {
+    backgroundColor: Colors.dark.accent,
   },
 })

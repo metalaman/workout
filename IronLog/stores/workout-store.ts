@@ -3,12 +3,14 @@ import type { ActiveWorkoutExercise } from '@/types'
 
 interface WorkoutState {
   isActive: boolean
+  isPaused: boolean
   sessionId: string | null
   programDayName: string
   exercises: ActiveWorkoutExercise[]
   currentExerciseIndex: number
   startTime: number | null
   elapsedSeconds: number
+  pausedAtSeconds: number
   restTimerSeconds: number
   isResting: boolean
 
@@ -22,18 +24,22 @@ interface WorkoutState {
   updateElapsed: (seconds: number) => void
   startRest: (seconds: number) => void
   stopRest: () => void
+  pauseWorkout: () => void
+  resumeWorkout: () => void
   endWorkout: () => { totalVolume: number; duration: number }
   reset: () => void
 }
 
 const initialState = {
   isActive: false,
+  isPaused: false,
   sessionId: null as string | null,
   programDayName: '',
   exercises: [] as ActiveWorkoutExercise[],
   currentExerciseIndex: 0,
   startTime: null as number | null,
   elapsedSeconds: 0,
+  pausedAtSeconds: 0,
   restTimerSeconds: 0,
   isResting: false,
 }
@@ -76,6 +82,13 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   startRest: (seconds) => set({ isResting: true, restTimerSeconds: seconds }),
 
   stopRest: () => set({ isResting: false, restTimerSeconds: 0 }),
+
+  pauseWorkout: () => set((state) => ({
+    isPaused: true,
+    pausedAtSeconds: state.elapsedSeconds,
+  })),
+
+  resumeWorkout: () => set({ isPaused: false }),
 
   endWorkout: () => {
     const state = get()
