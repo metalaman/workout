@@ -236,6 +236,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         daysPerWeek,
         totalWeeks,
         currentWeek: 1,
+        color,
       })
       const programWithColor = { ...program, color }
       set({
