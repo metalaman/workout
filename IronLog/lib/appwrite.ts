@@ -8,7 +8,7 @@ export const account = new Account(client)
 export const databases = new Databases(client)
 export const avatars = new Avatars(client)
 
-export const DATABASE_ID = 'ironlog'
+export const DATABASE_ID = '698dd75900395a2e605e'
 
 export const COLLECTION = {
   EXERCISES: 'exercises',
