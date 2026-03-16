@@ -34,24 +34,20 @@ export default function CreateProgramScreen() {
     if (!name.trim() || !user?.$id || isCreating) return
     setIsCreating(true)
     try {
-      await Promise.race([
-        createNewProgram(
-          name.trim(),
-          daysPerWeek,
-          parseInt(totalWeeks, 10) || 8,
-          user.$id,
-          selectedColor,
-        ),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 3000)
-        ),
-      ])
+      // createNewProgram handles local fallback internally
+      await createNewProgram(
+        name.trim(),
+        daysPerWeek,
+        parseInt(totalWeeks, 10) || 8,
+        user.$id,
+        selectedColor,
+      )
     } catch {
-      // createNewProgram has local fallback
-    } finally {
-      setIsCreating(false)
-      router.push('/(tabs)/program/edit-day?dayIndex=0&isNew=true' as Href)
+      // Already handled in store
     }
+    setIsCreating(false)
+    // Navigate to edit the first day of the new program
+    router.replace('/(tabs)/program/edit-day?dayIndex=0&isNew=true' as Href)
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView,
   Alert, KeyboardAvoidingView, Platform,
@@ -42,15 +42,13 @@ export default function EditDayScreen() {
   const program = builderProgram || currentProgram
 
   // Create the day if it's new and doesn't exist
-  const ensureDayExists = useCallback(async () => {
-    if (!builderDays[dayIndex]) {
-      await addDay(dayName)
+  const didInit = useRef(false)
+  useEffect(() => {
+    if (isNew && !builderDays[dayIndex] && !didInit.current) {
+      didInit.current = true
+      addDay(dayName).catch(() => {})
     }
-  }, [dayIndex, dayName, builderDays, addDay])
-
-  if (isNew && !day) {
-    ensureDayExists()
-  }
+  }, [isNew, dayIndex, builderDays, addDay, dayName])
 
   const exercises = day?.exercises ?? []
 

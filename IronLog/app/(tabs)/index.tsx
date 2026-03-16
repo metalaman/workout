@@ -225,8 +225,8 @@ export default function HomeScreen() {
   const handleCalendarDayPress = (day: typeof weekCalendar[0]) => {
     if (day.sessionId) {
       router.push(`/workout/detail?sessionId=${day.sessionId}` as Href)
-    } else if (day.isToday && todaysDay) {
-      // Open today's workout plan
+    } else {
+      // Navigate to the program tab to see workout plans
       router.push('/(tabs)/program' as Href)
     }
   }
@@ -235,7 +235,7 @@ export default function HomeScreen() {
     if (sessionId) {
       router.push(`/workout/detail?sessionId=${sessionId}` as Href)
     } else {
-      // For placeholder/mock data, open the program tab
+      // Navigate to program tab
       router.push('/(tabs)/program' as Href)
     }
   }
@@ -291,8 +291,8 @@ export default function HomeScreen() {
                 key={i}
                 style={styles.weekDay}
                 onPress={() => handleCalendarDayPress(d)}
-                activeOpacity={d.hasStrength || d.hasCardio || d.isToday ? 0.6 : 1}
-                disabled={!d.sessionId && !d.isToday}
+                activeOpacity={0.6}
+                disabled={false}
               >
                 <Text style={styles.weekDayLabel}>{DAYS_LABELS[i]}</Text>
                 <View
@@ -403,32 +403,34 @@ export default function HomeScreen() {
                 </View>
               </TouchableOpacity>
             ))
-          ) : (
-            <>
-              {[
-                { name: 'Pull Day B', date: 'Yesterday', vol: '12,450 lbs' },
-                { name: 'Leg Day', date: 'Mon', vol: '18,200 lbs' },
-                { name: 'Push Day A', date: 'Sat', vol: '10,800 lbs' },
-              ].map((w, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.recentCard}
-                  onPress={() => handleRecentWorkoutPress()}
-                  activeOpacity={0.7}
-                >
+          ) : days.length > 0 ? (
+            days.slice(0, 3).map((d, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.recentCard}
+                onPress={() => router.push('/(tabs)/program' as Href)}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                  <ExerciseIcon
+                    exerciseName={d.exercises[0]?.exerciseId}
+                    size={36}
+                    color={currentProgram?.color || Colors.dark.accent}
+                  />
                   <View>
-                    <Text style={styles.recentName}>{w.name}</Text>
-                    <Text style={styles.recentDate}>{w.date}</Text>
+                    <Text style={styles.recentName}>{d.name}</Text>
+                    <Text style={styles.recentDate}>{d.exercises.length} exercises</Text>
                   </View>
-                  <View style={styles.recentRight}>
-                    <Text style={styles.recentVolume}>{w.vol}</Text>
-                    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                      <Path d="M9 18l6-6-6-6" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </>
+                </View>
+                <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                  <Path d="M9 18l6-6-6-6" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.recentCard}>
+              <Text style={styles.recentDate}>No workouts yet — create a program to get started!</Text>
+            </View>
           )}
         </View>
 
