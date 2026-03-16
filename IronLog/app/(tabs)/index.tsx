@@ -1,19 +1,27 @@
-import { useEffect, useMemo } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
+  Dimensions, Pressable,
+} from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, Href } from 'expo-router'
+import Svg, { Path } from 'react-native-svg'
 import { useAuthStore } from '@/stores/auth-store'
 import { useProgramStore } from '@/stores/program-store'
 import { useSessionStore } from '@/stores/session-store'
+import { useCardioStore } from '@/stores/cardio-store'
 import { useWorkoutStore } from '@/stores/workout-store'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
 import { formatDate, getDayOfWeek, getRelativeTime, formatVolume, calculate1RM } from '@/lib/utils'
 import { createWorkoutSession } from '@/lib/database'
 import { ExerciseIcon, MUSCLE_GROUP_COLORS } from '@/components/exercise-icon'
+import { StrengthScoreGauge, StrengthBalanceGauge } from '@/components/strength-gauges'
 import type { ActiveWorkoutExercise } from '@/types'
 
-const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+const { width: SCREEN_W } = Dimensions.get('window')
+const CARD_W = SCREEN_W - 40
+const DAYS_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 function guessMuscleGroup(name: string): string {
   const n = name.toLowerCase()
@@ -26,15 +34,30 @@ function guessMuscleGroup(name: string): string {
   return 'Chest'
 }
 
+// Categorize exercise into Push/Pull/Legs/Core for balance
+function getTrainingCategory(name: string): 'push' | 'pull' | 'legs' | 'core' {
+  const mg = guessMuscleGroup(name)
+  if (mg === 'Chest' || mg === 'Shoulders') return 'push'
+  if (mg === 'Back') return 'pull'
+  if (mg === 'Legs') return 'legs'
+  if (mg === 'Core') return 'core'
+  // Arms split
+  const n = name.toLowerCase()
+  if (n.includes('curl') || n.includes('bicep')) return 'pull'
+  return 'push'
+}
+
 export default function HomeScreen() {
   const { user, profile } = useAuthStore()
   const { currentProgram, days, loadPrograms } = useProgramStore()
-  const { recentSessions, personalRecords, loadRecent, loadAll, loadPRs } = useSessionStore()
+  const { recentSessions, personalRecords, allSessions, loadRecent, loadAll, loadPRs } = useSessionStore()
+  const { sessions: cardioSessions, loadSessions: loadCardio } = useCardioStore()
   const { startWorkout } = useWorkoutStore()
   const router = useRouter()
   const today = getDayOfWeek()
   const displayName = profile?.displayName ?? user?.name ?? 'Athlete'
   const initial = displayName.charAt(0).toUpperCase()
+  const [showActivityPicker, setShowActivityPicker] = useState(false)
 
   useEffect(() => {
     if (user?.$id) {
@@ -42,6 +65,7 @@ export default function HomeScreen() {
       loadRecent(user.$id)
       loadAll(user.$id)
       loadPRs(user.$id)
+      loadCardio(user.$id)
     }
   }, [user?.$id])
 
@@ -49,7 +73,73 @@ export default function HomeScreen() {
   const todaysDay = days[todaysDayIndex]
   const exerciseCount = todaysDay?.exercises?.length ?? 0
 
-  // Build PR map for 1RM%
+  // Strength Score: sum of est1RMs for compound lifts
+  const strengthScore = useMemo(() => {
+    if (personalRecords.length === 0) return { score: 0, delta: 0 }
+    let total = 0
+    const compounds = ['bench', 'squat', 'deadlift', 'press', 'row']
+    for (const pr of personalRecords) {
+      const n = pr.exerciseName.toLowerCase()
+      const isCompound = compounds.some((c) => n.includes(c))
+      const est = pr.estimated1RM || calculate1RM(pr.weight, pr.reps)
+      if (isCompound) total += est
+    }
+    return { score: Math.round(total), delta: 0 }
+  }, [personalRecords])
+
+  // Strength Balance: volume per training category
+  const strengthBalance = useMemo(() => {
+    const cats = { push: 0, pull: 0, legs: 0, core: 0 }
+    for (const pr of personalRecords) {
+      const cat = getTrainingCategory(pr.exerciseName)
+      cats[cat] += pr.estimated1RM || calculate1RM(pr.weight, pr.reps)
+    }
+    const max = Math.max(cats.push, cats.pull, cats.legs, cats.core, 1)
+    return {
+      push: Math.round((cats.push / max) * 100),
+      pull: Math.round((cats.pull / max) * 100),
+      legs: Math.round((cats.legs / max) * 100),
+      core: Math.round((cats.core / max) * 100),
+    }
+  }, [personalRecords])
+
+  // Weekly calendar
+  const weekCalendar = useMemo(() => {
+    const now = new Date()
+    const dayOfWeek = now.getDay() // 0=Sun
+    const weekStart = new Date(now)
+    weekStart.setDate(now.getDate() - dayOfWeek)
+
+    const workoutDates = new Set<string>()
+    const cardioDates = new Set<string>()
+
+    for (const s of allSessions) {
+      if (s.completedAt) {
+        const d = new Date(s.completedAt)
+        workoutDates.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`)
+      }
+    }
+    for (const c of cardioSessions) {
+      const d = new Date(c.startedAt)
+      cardioDates.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`)
+    }
+
+    const days = []
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart)
+      d.setDate(weekStart.getDate() + i)
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+      const isToday = d.toDateString() === now.toDateString()
+      const hasStrength = workoutDates.has(key)
+      const hasCardio = cardioDates.has(key)
+      days.push({ date: d.getDate(), isToday, hasStrength, hasCardio, isPast: d < now && !isToday })
+    }
+    return days
+  }, [allSessions, cardioSessions])
+
+  const completedThisWeek = weekCalendar.filter((d) => d.hasStrength || d.hasCardio).length
+
+  // Build PR map for top lift
   const prMap = useMemo(() => {
     const map = new Map<string, { est1RM: number; name: string }>()
     for (const pr of personalRecords) {
@@ -59,7 +149,6 @@ export default function HomeScreen() {
     return map
   }, [personalRecords])
 
-  // Compute "top lift" for today's workout exercises
   const topLift = useMemo(() => {
     if (!todaysDay) return null
     let best: { name: string; pct: number; color: string } | null = null
@@ -77,7 +166,8 @@ export default function HomeScreen() {
     return best
   }, [todaysDay, prMap])
 
-  const handleStartWorkout = async () => {
+  const handleStartStrength = async () => {
+    setShowActivityPicker(false)
     if (!user?.$id || !todaysDay) return
     const activeExercises: ActiveWorkoutExercise[] = todaysDay.exercises.map((ex) => ({
       exerciseId: ex.exerciseId,
@@ -88,7 +178,6 @@ export default function HomeScreen() {
       })),
       restSeconds: ex.restSeconds ?? 90,
     }))
-
     try {
       const session = await createWorkoutSession({
         userId: user.$id, programDayId: todaysDay.$id,
@@ -103,6 +192,26 @@ export default function HomeScreen() {
     router.push('/workout/active' as Href)
   }
 
+  const handleStartFreestyle = () => {
+    setShowActivityPicker(false)
+    router.push('/workout/freestyle' as Href)
+  }
+
+  const handleStartCardio = () => {
+    setShowActivityPicker(false)
+    router.push('/workout/cardio' as Href)
+  }
+
+  const handleLogBody = () => {
+    setShowActivityPicker(false)
+    router.push('/stats/body' as Href)
+  }
+
+  const handleProgressPhoto = () => {
+    setShowActivityPicker(false)
+    router.push('/stats/photos' as Href)
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -110,7 +219,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.dateText}>{formatDate()}</Text>
-            <Text style={styles.greeting}>Hey, {displayName} 👋</Text>
+            <Text style={styles.greeting}>Hey, {displayName}</Text>
           </View>
           <TouchableOpacity onPress={() => router.push('/profile' as Href)}>
             <LinearGradient colors={[profile?.avatarColor ?? '#e8ff47', '#7fff00']} style={styles.avatar}>
@@ -119,38 +228,68 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Weekly Streak */}
-        <View style={styles.streakContainer}>
-          <View style={styles.streakCard}>
-            <View style={styles.streakHeader}>
-              <Text style={styles.streakTitle}>🔥 {profile?.streakCount ?? 0} WEEK STREAK</Text>
-              <Text style={styles.streakSubtitle}>0/{profile?.weeklyGoal ?? 5} this week</Text>
-            </View>
-            <View style={styles.daysRow}>
-              {DAYS.map((d, i) => (
-                <View key={i} style={styles.dayColumn}>
-                  <LinearGradient
-                    colors={i < today ? ['#e8ff47', '#a8e000'] : ['transparent', 'transparent']}
-                    style={[
-                      styles.dayCircle,
-                      i >= today && styles.dayCircleInactive,
-                      i === today && styles.dayCircleCurrent,
-                    ]}
-                  >
-                    <Text style={[styles.dayCheck, { color: i < today ? Colors.dark.textOnAccent : Colors.dark.textMuted }]}>
-                      {i < today ? '✓' : ''}
+        {/* Metrics Carousel */}
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={CARD_W + 12}
+          decelerationRate="fast"
+          contentContainerStyle={styles.carouselContent}
+          style={styles.carousel}
+        >
+          {/* Strength Score Card */}
+          <View style={[styles.carouselCard, { width: CARD_W }]}>
+            <Text style={styles.carouselLabel}>STRENGTH SCORE</Text>
+            <StrengthScoreGauge score={strengthScore.score} delta={strengthScore.delta} />
+          </View>
+          {/* Strength Balance Card */}
+          <View style={[styles.carouselCard, { width: CARD_W }]}>
+            <StrengthBalanceGauge {...strengthBalance} />
+          </View>
+        </ScrollView>
+
+        {/* Weekly Calendar */}
+        <View style={styles.weekSection}>
+          <View style={styles.weekHeader}>
+            <Text style={styles.sectionTitle}>THIS WEEK</Text>
+            <Text style={styles.weekCount}>
+              {completedThisWeek}/{profile?.weeklyGoal ?? 5} days
+            </Text>
+          </View>
+          <View style={styles.weekRow}>
+            {weekCalendar.map((d, i) => (
+              <View key={i} style={styles.weekDay}>
+                <Text style={styles.weekDayLabel}>{DAYS_LABELS[i]}</Text>
+                <View
+                  style={[
+                    styles.weekDayCircle,
+                    d.hasStrength && styles.weekDayCompleted,
+                    d.isToday && styles.weekDayToday,
+                    !d.hasStrength && !d.isToday && styles.weekDayEmpty,
+                  ]}
+                >
+                  {d.hasStrength ? (
+                    <Text style={styles.weekDayCheck}>✓</Text>
+                  ) : (
+                    <Text style={[styles.weekDayNum, d.isToday && { color: Colors.dark.accent }]}>
+                      {d.date}
                     </Text>
-                  </LinearGradient>
-                  <Text style={styles.dayLabel}>{d}</Text>
+                  )}
                 </View>
-              ))}
-            </View>
+                {/* Activity dots */}
+                <View style={styles.dotsRow}>
+                  {d.hasStrength && <View style={[styles.dot, { backgroundColor: Colors.dark.accent }]} />}
+                  {d.hasCardio && <View style={[styles.dot, { backgroundColor: Colors.dark.info }]} />}
+                </View>
+              </View>
+            ))}
           </View>
         </View>
 
         {/* Today's Workout */}
         {todaysDay && (
-          <TouchableOpacity activeOpacity={0.9} style={styles.todayContainer} onPress={handleStartWorkout}>
+          <TouchableOpacity activeOpacity={0.9} style={styles.todayContainer} onPress={handleStartStrength}>
             <LinearGradient colors={['#e8ff47', '#7fff00']} style={styles.todayCard}>
               <View style={styles.todayInfo}>
                 <Text style={styles.todayLabel}>TODAY'S WORKOUT</Text>
@@ -173,21 +312,21 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Top PRs quick view */}
+        {/* Top PRs */}
         {personalRecords.length > 0 && (
-          <View style={styles.prQuickSection}>
+          <View style={styles.prSection}>
             <Text style={styles.sectionTitle}>TOP LIFTS (1RM)</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.prQuickRow}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.prRow}>
               {personalRecords.slice(0, 5).map((pr) => {
                 const mg = guessMuscleGroup(pr.exerciseName)
                 const c = MUSCLE_GROUP_COLORS[mg] || Colors.dark.accent
                 return (
-                  <View key={pr.$id} style={[styles.prQuickCard, { borderColor: `${c}30` }]}>
+                  <View key={pr.$id} style={[styles.prCard, { borderColor: `${c}30` }]}>
                     <ExerciseIcon exerciseName={pr.exerciseName} size={20} color={c} />
-                    <Text style={[styles.prQuickValue, { color: c }]}>
+                    <Text style={[styles.prValue, { color: c }]}>
                       {pr.estimated1RM || calculate1RM(pr.weight, pr.reps)}
                     </Text>
-                    <Text style={styles.prQuickName} numberOfLines={1}>
+                    <Text style={styles.prName} numberOfLines={1}>
                       {pr.exerciseName.length > 12 ? pr.exerciseName.substring(0, 12) + '…' : pr.exerciseName}
                     </Text>
                   </View>
@@ -233,8 +372,97 @@ export default function HomeScreen() {
           )}
         </View>
 
-        <View style={{ height: 20 }} />
+        <View style={{ height: 80 }} />
       </ScrollView>
+
+      {/* FAB Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setShowActivityPicker(true)}
+        activeOpacity={0.8}
+      >
+        <LinearGradient colors={['#e8ff47', '#7fff00']} style={styles.fabGradient}>
+          <Text style={styles.fabIcon}>+</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* Activity Picker Modal */}
+      <Modal
+        visible={showActivityPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowActivityPicker(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowActivityPicker(false)}>
+          <Pressable style={styles.bottomSheet} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Start Activity</Text>
+
+            <TouchableOpacity style={styles.activityRow} onPress={handleStartStrength}>
+              <View style={[styles.activityIcon, { backgroundColor: 'rgba(232,255,71,0.15)' }]}>
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path d="M6 5v14M18 5v14M6 12h12M4 7h4M16 7h4M4 17h4M16 17h4" stroke={Colors.dark.accent} strokeWidth={2} strokeLinecap="round" />
+                </Svg>
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle}>Strength Workout</Text>
+                <Text style={styles.activitySub}>Follow your program</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.activityRow} onPress={handleStartFreestyle}>
+              <View style={[styles.activityIcon, { backgroundColor: 'rgba(127,255,0,0.15)' }]}>
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path d="M13 10V3L4 14h7v7l9-11h-7z" stroke="#7fff00" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle}>Freestyle Workout</Text>
+                <Text style={styles.activitySub}>Pick exercises on the fly</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.activityRow} onPress={handleStartCardio}>
+              <View style={[styles.activityIcon, { backgroundColor: 'rgba(107,197,255,0.15)' }]}>
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke={Colors.dark.info} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle}>Cardio</Text>
+                <Text style={styles.activitySub}>Running, cycling, swimming...</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.activityRow} onPress={handleLogBody}>
+              <View style={[styles.activityIcon, { backgroundColor: 'rgba(255,159,67,0.15)' }]}>
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path d="M12 2a4 4 0 014 4v1a4 4 0 01-8 0V6a4 4 0 014-4zM6 21v-2a6 6 0 0112 0v2" stroke="#ff9f43" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle}>Body Stat</Text>
+                <Text style={styles.activitySub}>Weight, measurements, body fat</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.activityRow} onPress={handleProgressPhoto}>
+              <View style={[styles.activityIcon, { backgroundColor: 'rgba(255,107,107,0.15)' }]}>
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2v11z" stroke={Colors.dark.danger} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                  <Path d="M12 17a4 4 0 100-8 4 4 0 000 8z" stroke={Colors.dark.danger} strokeWidth={2} />
+                </Svg>
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle}>Progress Photo</Text>
+                <Text style={styles.activitySub}>Track your transformation</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={{ height: 20 }} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -250,21 +478,38 @@ const styles = StyleSheet.create({
   greeting: { color: Colors.dark.text, fontSize: FontSize.title, fontWeight: FontWeight.bold, marginTop: 2 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontWeight: FontWeight.extrabold, fontSize: FontSize.xl, color: Colors.dark.textOnAccent },
-  streakContainer: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.xl },
-  streakCard: {
-    backgroundColor: Colors.dark.accentSurface, borderWidth: 1, borderColor: Colors.dark.accentBorder,
-    borderRadius: BorderRadius.xl, padding: Spacing.xl,
+
+  // Carousel
+  carousel: { marginBottom: Spacing.xl },
+  carouselContent: { paddingHorizontal: Spacing.xxl, gap: 12 },
+  carouselCard: {
+    backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.xxl,
+    borderWidth: 1, borderColor: Colors.dark.border, padding: Spacing.xl,
   },
-  streakHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
-  streakTitle: { color: Colors.dark.accent, fontSize: FontSize.md, fontWeight: FontWeight.bold, letterSpacing: 1 },
-  streakSubtitle: { color: Colors.dark.textMuted, fontSize: FontSize.sm },
-  daysRow: { flexDirection: 'row', gap: Spacing.sm },
-  dayColumn: { flex: 1, alignItems: 'center' },
-  dayCircle: { width: 28, height: 28, borderRadius: BorderRadius.sm, alignItems: 'center', justifyContent: 'center', marginBottom: 3 },
-  dayCircleInactive: { backgroundColor: Colors.dark.surface },
-  dayCircleCurrent: { backgroundColor: 'rgba(232,255,71,0.2)', borderWidth: 1, borderColor: Colors.dark.accentBorderStrong },
-  dayCheck: { fontSize: FontSize.sm, fontWeight: FontWeight.bold },
-  dayLabel: { fontSize: FontSize.xs, color: Colors.dark.textMuted },
+  carouselLabel: {
+    color: Colors.dark.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.bold,
+    letterSpacing: 1.5, marginBottom: Spacing.sm,
+  },
+
+  // Weekly calendar
+  weekSection: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.xl },
+  weekHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  weekCount: { color: Colors.dark.textSecondary, fontSize: FontSize.sm },
+  weekRow: { flexDirection: 'row', gap: Spacing.sm },
+  weekDay: { flex: 1, alignItems: 'center' },
+  weekDayLabel: { fontSize: FontSize.xs, color: Colors.dark.textMuted, marginBottom: 4 },
+  weekDayCircle: {
+    width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+  },
+  weekDayCompleted: { backgroundColor: Colors.dark.accent },
+  weekDayToday: { borderWidth: 2, borderColor: Colors.dark.accent, backgroundColor: 'transparent' },
+  weekDayEmpty: { backgroundColor: Colors.dark.surface },
+  weekDayCheck: { color: Colors.dark.textOnAccent, fontSize: FontSize.lg, fontWeight: FontWeight.bold },
+  weekDayNum: { color: Colors.dark.textMuted, fontSize: FontSize.md, fontWeight: FontWeight.semibold },
+  dotsRow: { flexDirection: 'row', gap: 3, marginTop: 3, height: 4 },
+  dot: { width: 4, height: 4, borderRadius: 2 },
+
+  // Today's workout
   todayContainer: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.xl },
   todayCard: {
     borderRadius: BorderRadius.xxl, padding: 18, flexDirection: 'row',
@@ -280,16 +525,17 @@ const styles = StyleSheet.create({
   playButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.dark.textOnAccent, alignItems: 'center', justifyContent: 'center' },
   playIcon: { fontSize: FontSize.xxl, color: Colors.dark.text },
 
-  // PR quick view
-  prQuickSection: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.xl },
-  prQuickRow: { gap: Spacing.sm },
-  prQuickCard: {
+  // PRs
+  prSection: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.xl },
+  prRow: { gap: Spacing.sm },
+  prCard: {
     backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg,
     borderWidth: 1, padding: Spacing.lg, alignItems: 'center', width: 88, gap: 3,
   },
-  prQuickValue: { fontSize: FontSize.xl, fontWeight: FontWeight.extrabold },
-  prQuickName: { fontSize: 8, color: Colors.dark.textMuted, textAlign: 'center' },
+  prValue: { fontSize: FontSize.xl, fontWeight: FontWeight.extrabold },
+  prName: { fontSize: 8, color: Colors.dark.textMuted, textAlign: 'center' },
 
+  // Recent
   recentSection: { paddingHorizontal: Spacing.xxl, flex: 1 },
   sectionTitle: { color: Colors.dark.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.bold, letterSpacing: 1.5, marginBottom: Spacing.md },
   recentCard: {
@@ -300,4 +546,45 @@ const styles = StyleSheet.create({
   recentName: { color: Colors.dark.text, fontSize: FontSize.lg, fontWeight: FontWeight.semibold },
   recentDate: { color: Colors.dark.textMuted, fontSize: FontSize.sm, marginTop: 2 },
   recentVolume: { color: Colors.dark.accent, fontSize: FontSize.md, fontWeight: FontWeight.semibold },
+
+  // FAB
+  fab: {
+    position: 'absolute', bottom: 90, right: 20,
+    width: 56, height: 56, borderRadius: 28,
+    shadowColor: '#e8ff47', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+  },
+  fabGradient: {
+    width: 56, height: 56, borderRadius: 28,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  fabIcon: { fontSize: 28, fontWeight: FontWeight.bold, color: Colors.dark.textOnAccent },
+
+  // Modal
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end',
+  },
+  bottomSheet: {
+    backgroundColor: '#1a1a1a', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: Spacing.xxl, paddingBottom: 40,
+  },
+  sheetHandle: {
+    width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.xl,
+  },
+  sheetTitle: {
+    color: Colors.dark.text, fontSize: FontSize.title, fontWeight: FontWeight.bold,
+    marginBottom: Spacing.xxl,
+  },
+  activityRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: Colors.dark.border,
+  },
+  activityIcon: {
+    width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    marginRight: 14,
+  },
+  activityInfo: { flex: 1 },
+  activityTitle: { color: Colors.dark.text, fontSize: FontSize.xxl, fontWeight: FontWeight.semibold },
+  activitySub: { color: Colors.dark.textMuted, fontSize: FontSize.md, marginTop: 2 },
 })

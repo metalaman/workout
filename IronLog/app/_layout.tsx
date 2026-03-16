@@ -47,6 +47,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="workout" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="profile" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="stats" options={{ animation: 'slide_from_right' }} />
       </Stack>
       <StatusBar style="light" />
     </AuthGate>

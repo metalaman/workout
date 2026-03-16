@@ -1,4 +1,4 @@
-import { Client, Account, Databases, Avatars } from 'react-native-appwrite'
+import { Client, Account, Databases, Avatars, Storage } from 'react-native-appwrite'
 
 const client = new Client()
   .setEndpoint(process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT!)
@@ -7,6 +7,9 @@ const client = new Client()
 export const account = new Account(client)
 export const databases = new Databases(client)
 export const avatars = new Avatars(client)
+export const storage = new Storage(client)
+
+export const STORAGE_BUCKET = 'progress_photos'
 
 export const DATABASE_ID = '698dd75900395a2e605e'
 
@@ -22,6 +25,9 @@ export const COLLECTION = {
   GROUPS: 'groups',
   GROUP_MEMBERS: 'group_members',
   GROUP_MESSAGES: 'group_messages',
+  BODY_STATS: 'body_stats',
+  CARDIO_SESSIONS: 'cardio_sessions',
+  PROGRESS_PHOTOS: 'progress_photos',
 } as const
 
 export { client }

@@ -5,6 +5,7 @@ import type {
   WorkoutSession, WorkoutSet,
   PersonalRecord, UserProfile, SocialPost,
   Group, GroupMember, GroupMessage,
+  BodyStat, CardioSession, ProgressPhoto,
 } from '@/types'
 
 // ─── Programs ────────────────────────────────────────────────────────────────
@@ -442,4 +443,64 @@ export async function getLastGroupMessage(groupId: string): Promise<GroupMessage
     Query.limit(1),
   ])
   return (res.documents[0] as unknown as GroupMessage) ?? null
+}
+
+// ─── Body Stats ──────────────────────────────────────────────────────────────
+
+export async function listBodyStats(userId: string, limit = 50): Promise<BodyStat[]> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.BODY_STATS, [
+    Query.equal('userId', userId),
+    Query.orderDesc('recordedAt'),
+    Query.limit(limit),
+  ])
+  return res.documents as unknown as BodyStat[]
+}
+
+export async function createBodyStat(data: Omit<BodyStat, '$id'>): Promise<BodyStat> {
+  const doc = await databases.createDocument(DATABASE_ID, COLLECTION.BODY_STATS, ID.unique(), data)
+  return doc as unknown as BodyStat
+}
+
+export async function deleteBodyStat(id: string): Promise<void> {
+  await databases.deleteDocument(DATABASE_ID, COLLECTION.BODY_STATS, id)
+}
+
+// ─── Cardio Sessions ─────────────────────────────────────────────────────────
+
+export async function listCardioSessions(userId: string, limit = 50): Promise<CardioSession[]> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.CARDIO_SESSIONS, [
+    Query.equal('userId', userId),
+    Query.orderDesc('startedAt'),
+    Query.limit(limit),
+  ])
+  return res.documents as unknown as CardioSession[]
+}
+
+export async function createCardioSession(data: Omit<CardioSession, '$id'>): Promise<CardioSession> {
+  const doc = await databases.createDocument(DATABASE_ID, COLLECTION.CARDIO_SESSIONS, ID.unique(), data)
+  return doc as unknown as CardioSession
+}
+
+export async function deleteCardioSession(id: string): Promise<void> {
+  await databases.deleteDocument(DATABASE_ID, COLLECTION.CARDIO_SESSIONS, id)
+}
+
+// ─── Progress Photos ─────────────────────────────────────────────────────────
+
+export async function listProgressPhotos(userId: string, limit = 50): Promise<ProgressPhoto[]> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.PROGRESS_PHOTOS, [
+    Query.equal('userId', userId),
+    Query.orderDesc('takenAt'),
+    Query.limit(limit),
+  ])
+  return res.documents as unknown as ProgressPhoto[]
+}
+
+export async function createProgressPhoto(data: Omit<ProgressPhoto, '$id'>): Promise<ProgressPhoto> {
+  const doc = await databases.createDocument(DATABASE_ID, COLLECTION.PROGRESS_PHOTOS, ID.unique(), data)
+  return doc as unknown as ProgressPhoto
+}
+
+export async function deleteProgressPhoto(id: string): Promise<void> {
+  await databases.deleteDocument(DATABASE_ID, COLLECTION.PROGRESS_PHOTOS, id)
 }

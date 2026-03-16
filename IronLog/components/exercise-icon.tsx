@@ -602,3 +602,32 @@ function renderGenericFigure(s: number, sw: number, color: string, muscleGroup: 
     </G>
   )
 }
+
+// Comprehensive exercise list for pickers
+export const EXERCISES: string[] = [
+  // Chest
+  'Bench Press', 'Incline Bench Press', 'Decline Bench Press', 'Dumbbell Bench Press',
+  'Incline Dumbbell Press', 'Dumbbell Fly', 'Cable Fly', 'Chest Dip', 'Push-up',
+  'Machine Chest Press', 'Pec Deck',
+  // Back
+  'Barbell Row', 'Dumbbell Row', 'Cable Row', 'Seated Row', 'T-Bar Row',
+  'Pull-up', 'Chin-up', 'Lat Pulldown', 'Face Pull', 'Deadlift',
+  'Rack Pull', 'Hyperextension',
+  // Legs
+  'Barbell Squat', 'Front Squat', 'Leg Press', 'Hack Squat',
+  'Romanian Deadlift', 'Leg Curl', 'Leg Extension', 'Walking Lunge',
+  'Bulgarian Split Squat', 'Hip Thrust', 'Calf Raise', 'Seated Calf Raise',
+  'Goblet Squat', 'Sumo Deadlift',
+  // Shoulders
+  'Overhead Press', 'Dumbbell Shoulder Press', 'Arnold Press',
+  'Lateral Raise', 'Front Raise', 'Reverse Fly', 'Upright Row',
+  'Cable Lateral Raise', 'Machine Shoulder Press', 'Shrugs',
+  // Arms
+  'Barbell Curl', 'Dumbbell Curl', 'Hammer Curl', 'Preacher Curl',
+  'Cable Curl', 'Concentration Curl',
+  'Tricep Pushdown', 'Skull Crusher', 'Tricep Dip', 'Overhead Tricep Extension',
+  'Close-Grip Bench Press', 'Diamond Push-up',
+  // Core
+  'Plank', 'Crunch', 'Ab Wheel Rollout', 'Cable Crunch',
+  'Hanging Leg Raise', 'Russian Twist', 'Side Plank', 'Decline Sit-up',
+]
