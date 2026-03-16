@@ -539,7 +539,7 @@ export default function HomeScreen() {
         animationType="fade"
         onRequestClose={() => setShowMonthPicker(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowMonthPicker(false)}>
+        <Pressable style={[styles.modalOverlay, { justifyContent: 'center' }]} onPress={() => setShowMonthPicker(false)}>
           <Pressable style={styles.monthPickerSheet} onPress={() => {}}>
             {/* Month nav */}
             <View style={styles.monthNav}>
@@ -799,7 +799,7 @@ const styles = StyleSheet.create({
 
   // Month picker
   monthPickerSheet: {
-    backgroundColor: Colors.dark.surface,
+    backgroundColor: '#2a2a2a',
     borderRadius: BorderRadius.xxl,
     padding: Spacing.xxl,
     marginHorizontal: 20,
