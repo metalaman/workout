@@ -225,6 +225,9 @@ export default function HomeScreen() {
   const handleCalendarDayPress = (day: typeof weekCalendar[0]) => {
     if (day.sessionId) {
       router.push(`/workout/detail?sessionId=${day.sessionId}` as Href)
+    } else if (day.isToday && todaysDay) {
+      // Open today's workout plan
+      router.push('/(tabs)/program' as Href)
     }
   }
 
@@ -232,7 +235,8 @@ export default function HomeScreen() {
     if (sessionId) {
       router.push(`/workout/detail?sessionId=${sessionId}` as Href)
     } else {
-      router.push('/(tabs)/progress' as Href)
+      // For placeholder/mock data, open the program tab
+      router.push('/(tabs)/program' as Href)
     }
   }
 
@@ -287,8 +291,8 @@ export default function HomeScreen() {
                 key={i}
                 style={styles.weekDay}
                 onPress={() => handleCalendarDayPress(d)}
-                activeOpacity={d.hasStrength || d.hasCardio ? 0.6 : 1}
-                disabled={!d.sessionId}
+                activeOpacity={d.hasStrength || d.hasCardio || d.isToday ? 0.6 : 1}
+                disabled={!d.sessionId && !d.isToday}
               >
                 <Text style={styles.weekDayLabel}>{DAYS_LABELS[i]}</Text>
                 <View
