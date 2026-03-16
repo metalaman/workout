@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
-  Dimensions, Pressable,
+  Dimensions, Pressable, Animated,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -56,6 +56,8 @@ export default function HomeScreen() {
   const displayName = profile?.displayName ?? user?.name ?? 'Athlete'
   const initial = displayName.charAt(0).toUpperCase()
   const [showActivityPicker, setShowActivityPicker] = useState(false)
+  const [weekOffset, setWeekOffset] = useState(0) // 0 = this week, -1 = last week, etc.
+  const [showMonthPicker, setShowMonthPicker] = useState(false)
 
   useEffect(() => {
     if (user?.$id) {
@@ -106,7 +108,7 @@ export default function HomeScreen() {
     const now = new Date()
     const dayOfWeek = now.getDay()
     const weekStart = new Date(now)
-    weekStart.setDate(now.getDate() - dayOfWeek)
+    weekStart.setDate(now.getDate() - dayOfWeek + (weekOffset * 7))
 
     // Build map: dateKey → { sessionId, color }
     const workoutMap = new Map<string, { sessionId: string; color: string }>()
@@ -145,9 +147,72 @@ export default function HomeScreen() {
       })
     }
     return calDays
-  }, [allSessions, cardioSessions])
+  }, [allSessions, cardioSessions, weekOffset])
 
   const completedThisWeek = weekCalendar.filter((d) => d.hasStrength || d.hasCardio).length
+
+  // Week label
+  const weekLabel = useMemo(() => {
+    if (weekOffset === 0) return 'THIS WEEK'
+    const now = new Date()
+    const weekStart = new Date(now)
+    weekStart.setDate(now.getDate() - now.getDay() + (weekOffset * 7))
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 6)
+    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return `${fmt(weekStart)} – ${fmt(weekEnd)}`
+  }, [weekOffset])
+
+  // Month picker data
+  const monthCalendar = useMemo(() => {
+    const now = new Date()
+    const offset = weekOffset * 7
+    const refDate = new Date(now)
+    refDate.setDate(now.getDate() + offset)
+    const year = refDate.getFullYear()
+    const month = refDate.getMonth()
+    const firstDay = new Date(year, month, 1).getDay()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+    // Build workout map for the month
+    const workoutDates = new Map<number, { sessionId: string; color: string }>()
+    for (const s of allSessions) {
+      if (s.completedAt) {
+        const d = new Date(s.completedAt)
+        if (d.getFullYear() === year && d.getMonth() === month) {
+          const matchedProg = programs.find((p: any) =>
+            days.some((day: any) => day.programId === p.$id && day.name === s.programDayName)
+          )
+          workoutDates.set(d.getDate(), {
+            sessionId: s.$id,
+            color: matchedProg?.color || currentProgram?.color || Colors.dark.accent,
+          })
+        }
+      }
+    }
+
+    const cells: { date: number; isCurrentMonth: boolean; isToday: boolean; workout?: { sessionId: string; color: string } }[] = []
+    // Previous month padding
+    for (let i = 0; i < firstDay; i++) cells.push({ date: 0, isCurrentMonth: false, isToday: false })
+    // Current month
+    for (let d = 1; d <= daysInMonth; d++) {
+      const isToday = d === now.getDate() && month === now.getMonth() && year === now.getFullYear()
+      cells.push({ date: d, isCurrentMonth: true, isToday, workout: workoutDates.get(d) })
+    }
+    return { year, month, cells, monthName: new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) }
+  }, [weekOffset, allSessions, programs, days, currentProgram])
+
+  const jumpToWeekContaining = (date: number) => {
+    const now = new Date()
+    const target = new Date(monthCalendar.year, monthCalendar.month, date)
+    const targetWeekStart = new Date(target)
+    targetWeekStart.setDate(target.getDate() - target.getDay())
+    const currentWeekStart = new Date(now)
+    currentWeekStart.setDate(now.getDate() - now.getDay())
+    const diffWeeks = Math.round((targetWeekStart.getTime() - currentWeekStart.getTime()) / (7 * 86400000))
+    setWeekOffset(diffWeeks)
+    setShowMonthPicker(false)
+  }
 
   // PR map for top lift
   const prMap = useMemo(() => {
@@ -275,15 +340,34 @@ export default function HomeScreen() {
           </View>
         </ScrollView>
 
-        {/* Weekly Calendar — tappable */}
+        {/* Weekly Calendar — swipeable with calendar picker */}
         <View style={styles.weekSection}>
           <View style={styles.weekHeader}>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/progress' as Href)} activeOpacity={0.7}>
-              <Text style={styles.sectionTitle}>THIS WEEK</Text>
-            </TouchableOpacity>
-            <Text style={styles.weekCount}>
-              {completedThisWeek}/{profile?.weeklyGoal ?? 5} days
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity onPress={() => setWeekOffset(w => w - 1)} activeOpacity={0.6} hitSlop={12}>
+                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                  <Path d="M15 18l-6-6 6-6" stroke={Colors.dark.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => weekOffset !== 0 ? setWeekOffset(0) : null} activeOpacity={weekOffset === 0 ? 1 : 0.6}>
+                <Text style={[styles.sectionTitle, weekOffset !== 0 && { color: Colors.dark.accent }]}>{weekLabel}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setWeekOffset(w => Math.min(0, w + 1))} activeOpacity={0.6} hitSlop={12} disabled={weekOffset >= 0}>
+                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                  <Path d="M9 18l6-6-6-6" stroke={weekOffset >= 0 ? Colors.dark.border : Colors.dark.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={styles.weekCount}>
+                {completedThisWeek}/{profile?.weeklyGoal ?? 5} days
+              </Text>
+              <TouchableOpacity onPress={() => setShowMonthPicker(true)} activeOpacity={0.6} hitSlop={8}>
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                  <Path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" stroke={Colors.dark.accent} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.weekRow}>
             {weekCalendar.map((d, i) => (
@@ -448,6 +532,75 @@ export default function HomeScreen() {
         </LinearGradient>
       </TouchableOpacity>
 
+      {/* Month Calendar Picker Modal */}
+      <Modal
+        visible={showMonthPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMonthPicker(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowMonthPicker(false)}>
+          <Pressable style={styles.monthPickerSheet} onPress={() => {}}>
+            {/* Month nav */}
+            <View style={styles.monthNav}>
+              <TouchableOpacity onPress={() => setWeekOffset(w => w - 4)} activeOpacity={0.6} hitSlop={12}>
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                  <Path d="M15 18l-6-6 6-6" stroke={Colors.dark.text} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+              <Text style={styles.monthTitle}>{monthCalendar.monthName}</Text>
+              <TouchableOpacity onPress={() => setWeekOffset(w => Math.min(0, w + 4))} activeOpacity={0.6} hitSlop={12}>
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                  <Path d="M9 18l6-6-6-6" stroke={Colors.dark.text} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+            </View>
+            {/* Day labels */}
+            <View style={styles.monthDayLabels}>
+              {DAYS_LABELS.map((l, i) => (
+                <Text key={i} style={styles.monthDayLabel}>{l}</Text>
+              ))}
+            </View>
+            {/* Calendar grid */}
+            <View style={styles.monthGrid}>
+              {monthCalendar.cells.map((cell, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.monthCell}
+                  onPress={() => cell.isCurrentMonth && cell.date > 0 ? jumpToWeekContaining(cell.date) : null}
+                  activeOpacity={cell.isCurrentMonth ? 0.6 : 1}
+                  disabled={!cell.isCurrentMonth}
+                >
+                  {cell.isCurrentMonth && (
+                    <View style={[
+                      styles.monthCellInner,
+                      cell.workout && { backgroundColor: cell.workout.color },
+                      cell.isToday && !cell.workout && { borderWidth: 1.5, borderColor: Colors.dark.accent },
+                    ]}>
+                      <Text style={[
+                        styles.monthCellText,
+                        cell.workout && { color: '#000', fontWeight: '700' as any },
+                        cell.isToday && !cell.workout && { color: Colors.dark.accent },
+                      ]}>
+                        {cell.date}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+            {/* Quick jump */}
+            <TouchableOpacity
+              style={styles.todayJumpBtn}
+              onPress={() => { setWeekOffset(0); setShowMonthPicker(false) }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.todayJumpText}>Jump to Today</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Activity Picker Modal */}
       <Modal
         visible={showActivityPicker}
@@ -544,7 +697,7 @@ const styles = StyleSheet.create({
   carousel: { marginBottom: Spacing.xl },
   carouselContent: { paddingHorizontal: Spacing.xxl, gap: 12 },
   carouselCard: {
-    backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.xxl,
+    backgroundColor: '#1a1a1a', borderRadius: BorderRadius.xxl,
     borderWidth: 1, borderColor: Colors.dark.border, padding: Spacing.xl,
   },
   carouselLabel: {
@@ -643,4 +796,74 @@ const styles = StyleSheet.create({
   activityInfo: { flex: 1 },
   activityTitle: { color: Colors.dark.text, fontSize: FontSize.xxl, fontWeight: FontWeight.semibold },
   activitySub: { color: Colors.dark.textMuted, fontSize: FontSize.md, marginTop: 2 },
+
+  // Month picker
+  monthPickerSheet: {
+    backgroundColor: Colors.dark.surface,
+    borderRadius: BorderRadius.xxl,
+    padding: Spacing.xxl,
+    marginHorizontal: 20,
+    maxWidth: 380,
+    alignSelf: 'center' as const,
+    width: '90%' as any,
+  },
+  monthNav: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    marginBottom: Spacing.xl,
+  },
+  monthTitle: {
+    fontSize: FontSize.xxl,
+    fontWeight: FontWeight.bold,
+    color: Colors.dark.text,
+  },
+  monthDayLabels: {
+    flexDirection: 'row' as const,
+    marginBottom: Spacing.md,
+  },
+  monthDayLabel: {
+    flex: 1,
+    textAlign: 'center' as const,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.dark.textMuted,
+  },
+  monthGrid: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+  },
+  monthCell: {
+    width: '14.28%' as any,
+    aspectRatio: 1,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    padding: 2,
+  },
+  monthCellInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  monthCellText: {
+    fontSize: FontSize.base,
+    color: Colors.dark.textSecondary,
+  },
+  todayJumpBtn: {
+    alignSelf: 'center' as const,
+    marginTop: Spacing.xl,
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.surface,
+    borderWidth: 1,
+    borderColor: Colors.dark.accent + '30',
+  },
+  todayJumpText: {
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.semibold,
+    color: Colors.dark.accent,
+  },
 })
