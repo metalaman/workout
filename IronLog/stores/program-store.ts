@@ -173,8 +173,8 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     if (!day || !day.$id || day.$id.startsWith('local-')) return
     try {
       await db.updateProgramDay(day.$id, { exercises: day.exercises })
-    } catch {
-      // Silently fail — data is still in local state
+    } catch (e) {
+      console.warn('saveDayToBackend failed:', e)
     }
   },
 
@@ -247,7 +247,8 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         programs: [programWithColor, ...state.programs],
         currentProgram: programWithColor,
       }))
-    } catch {
+    } catch (e) {
+      console.warn('createNewProgram Appwrite failed:', e)
       const localProgram: Program = {
         $id: `local-${Date.now()}`,
         userId,

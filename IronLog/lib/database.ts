@@ -44,17 +44,41 @@ export async function listProgramDays(programId: string): Promise<ProgramDay[]> 
     Query.equal('programId', programId),
     Query.orderAsc('order'),
   ])
-  return res.documents as unknown as ProgramDay[]
+  // Parse exercises from JSON string
+  return (res.documents as unknown as ProgramDay[]).map((day) => ({
+    ...day,
+    exercises: typeof (day as any).exercises === 'string'
+      ? (() => { try { return JSON.parse((day as any).exercises) } catch { return [] } })()
+      : day.exercises ?? [],
+  }))
 }
 
 export async function createProgramDay(data: Omit<ProgramDay, '$id'>): Promise<ProgramDay> {
-  const doc = await databases.createDocument(DATABASE_ID, COLLECTION.PROGRAM_DAYS, ID.unique(), data)
-  return doc as unknown as ProgramDay
+  // Serialize exercises array to JSON string for Appwrite storage
+  const payload = {
+    ...data,
+    exercises: typeof data.exercises === 'string' ? data.exercises : JSON.stringify(data.exercises ?? []),
+  }
+  const doc = await databases.createDocument(DATABASE_ID, COLLECTION.PROGRAM_DAYS, ID.unique(), payload)
+  // Parse exercises back to array
+  const parsed = doc as unknown as ProgramDay
+  if (typeof (parsed as any).exercises === 'string') {
+    try { parsed.exercises = JSON.parse((parsed as any).exercises) } catch { parsed.exercises = [] }
+  }
+  return parsed
 }
 
 export async function updateProgramDay(dayId: string, data: Partial<ProgramDay>): Promise<ProgramDay> {
-  const doc = await databases.updateDocument(DATABASE_ID, COLLECTION.PROGRAM_DAYS, dayId, data)
-  return doc as unknown as ProgramDay
+  const payload = { ...data }
+  if (payload.exercises !== undefined) {
+    (payload as any).exercises = typeof payload.exercises === 'string' ? payload.exercises : JSON.stringify(payload.exercises ?? [])
+  }
+  const doc = await databases.updateDocument(DATABASE_ID, COLLECTION.PROGRAM_DAYS, dayId, payload)
+  const parsed = doc as unknown as ProgramDay
+  if (typeof (parsed as any).exercises === 'string') {
+    try { parsed.exercises = JSON.parse((parsed as any).exercises) } catch { parsed.exercises = [] }
+  }
+  return parsed
 }
 
 export async function deleteProgramDay(dayId: string): Promise<void> {
