@@ -56,8 +56,9 @@ export default function HomeScreen() {
   const displayName = profile?.displayName ?? user?.name ?? 'Athlete'
   const initial = displayName.charAt(0).toUpperCase()
   const [showActivityPicker, setShowActivityPicker] = useState(false)
-  const [weekOffset, setWeekOffset] = useState(0) // 0 = this week, -1 = last week, etc.
+  const [weekOffset, setWeekOffset] = useState(0)
   const [showMonthPicker, setShowMonthPicker] = useState(false)
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (user?.$id) {
@@ -287,14 +288,41 @@ export default function HomeScreen() {
     router.push('/stats/photos' as Href)
   }
 
-  const handleCalendarDayPress = (day: typeof weekCalendar[0]) => {
-    if (day.sessionId) {
-      router.push(`/workout/detail?sessionId=${day.sessionId}` as Href)
-    } else {
-      // Navigate to the program tab to see workout plans
-      router.push('/(tabs)/program' as Href)
-    }
+  const handleCalendarDayPress = (day: typeof weekCalendar[0], index: number) => {
+    // Toggle: tap same day to deselect, or select new day
+    setSelectedDayIndex(prev => prev === index ? null : index)
   }
+
+  // Get the selected day's workout session data
+  const selectedDayData = useMemo(() => {
+    if (selectedDayIndex === null) return null
+    const day = weekCalendar[selectedDayIndex]
+    if (!day) return null
+
+    // Find matching session
+    const session = day.sessionId
+      ? allSessions.find(s => s.$id === day.sessionId)
+      : null
+
+    // Build the full date for this day
+    const now = new Date()
+    const weekStart = new Date(now)
+    weekStart.setDate(now.getDate() - now.getDay() + (weekOffset * 7))
+    const targetDate = new Date(weekStart)
+    targetDate.setDate(weekStart.getDate() + selectedDayIndex)
+
+    // Find the program day for this date (which day of the week it maps to)
+    const dayOfWeekIndex = targetDate.getDay() === 0 ? 6 : targetDate.getDay() - 1
+    const programDay = dayOfWeekIndex < days.length ? days[dayOfWeekIndex] : null
+
+    return {
+      ...day,
+      session,
+      programDay,
+      fullDate: targetDate,
+      dateLabel: targetDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
+    }
+  }, [selectedDayIndex, weekCalendar, allSessions, weekOffset, days])
 
   const handleRecentWorkoutPress = (sessionId?: string) => {
     if (sessionId) {
@@ -374,7 +402,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={i}
                 style={styles.weekDay}
-                onPress={() => handleCalendarDayPress(d)}
+                onPress={() => handleCalendarDayPress(d, i)}
                 activeOpacity={0.6}
                 disabled={false}
               >
@@ -383,8 +411,9 @@ export default function HomeScreen() {
                   style={[
                     styles.weekDayCircle,
                     d.hasStrength && { backgroundColor: d.color },
-                    d.isToday && { borderWidth: 2, borderColor: currentProgram?.color || Colors.dark.accent, backgroundColor: 'transparent' },
-                    !d.hasStrength && !d.isToday && styles.weekDayEmpty,
+                    d.isToday && !d.hasStrength && { borderWidth: 2, borderColor: currentProgram?.color || Colors.dark.accent, backgroundColor: 'transparent' },
+                    selectedDayIndex === i && !d.hasStrength && { borderWidth: 2, borderColor: Colors.dark.accent },
+                    !d.hasStrength && !d.isToday && selectedDayIndex !== i && styles.weekDayEmpty,
                   ]}
                 >
                   {d.hasStrength ? (
@@ -402,10 +431,112 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </View>
+
+          {/* Selected Day Detail — inline card */}
+          {selectedDayData && (
+            <View style={styles.selectedDayCard}>
+              <Text style={styles.selectedDayDate}>{selectedDayData.dateLabel}</Text>
+              {selectedDayData.session ? (
+                // Completed workout
+                <View>
+                  <View style={styles.selectedDayHeader}>
+                    <View style={[styles.selectedDayDot, { backgroundColor: selectedDayData.color }]} />
+                    <Text style={styles.selectedDayName}>
+                      {selectedDayData.session.programDayName || 'Workout'}
+                    </Text>
+                  </View>
+                  <View style={styles.selectedDayStats}>
+                    {selectedDayData.session.totalVolume > 0 && (
+                      <View style={styles.selectedDayStat}>
+                        <Text style={styles.selectedDayStatValue}>
+                          {formatVolume(selectedDayData.session.totalVolume)}
+                        </Text>
+                        <Text style={styles.selectedDayStatLabel}>lbs</Text>
+                      </View>
+                    )}
+                    {selectedDayData.session.duration > 0 && (
+                      <View style={styles.selectedDayStat}>
+                        <Text style={styles.selectedDayStatValue}>
+                          {Math.round(selectedDayData.session.duration / 60)}
+                        </Text>
+                        <Text style={styles.selectedDayStatLabel}>min</Text>
+                      </View>
+                    )}
+                  </View>
+                  {selectedDayData.session.notes ? (
+                    <Text style={styles.selectedDayNotes} numberOfLines={2}>
+                      {selectedDayData.session.notes}
+                    </Text>
+                  ) : null}
+                  <TouchableOpacity
+                    style={styles.selectedDayViewBtn}
+                    onPress={() => router.push(`/workout/detail?sessionId=${selectedDayData.session!.$id}` as Href)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.selectedDayViewText}>View Details →</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : selectedDayData.isToday && selectedDayData.programDay ? (
+                // Today — show planned workout
+                <View>
+                  <View style={styles.selectedDayHeader}>
+                    <View style={[styles.selectedDayDot, { backgroundColor: currentProgram?.color || Colors.dark.accent }]} />
+                    <Text style={styles.selectedDayName}>{selectedDayData.programDay.name}</Text>
+                    <Text style={styles.selectedDayBadge}>PLANNED</Text>
+                  </View>
+                  <View style={styles.selectedDayExercises}>
+                    {selectedDayData.programDay.exercises.slice(0, 4).map((ex, i) => (
+                      <View key={i} style={styles.selectedDayExRow}>
+                        <ExerciseIcon exerciseName={ex.exerciseName} size={22} color={currentProgram?.color || Colors.dark.accent} />
+                        <Text style={styles.selectedDayExName} numberOfLines={1}>{ex.exerciseName}</Text>
+                        <Text style={styles.selectedDayExSets}>{ex.sets.length}×{ex.sets[0]?.reps || 8}</Text>
+                      </View>
+                    ))}
+                    {selectedDayData.programDay.exercises.length > 4 && (
+                      <Text style={styles.selectedDayMore}>
+                        +{selectedDayData.programDay.exercises.length - 4} more exercises
+                      </Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.selectedDayViewBtn, { backgroundColor: (currentProgram?.color || Colors.dark.accent) + '15' }]}
+                    onPress={handleStartStrength}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.selectedDayViewText, { color: currentProgram?.color || Colors.dark.accent }]}>Start Workout →</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : selectedDayData.programDay ? (
+                // Past/future day with a scheduled program day but no session
+                <View>
+                  <View style={styles.selectedDayHeader}>
+                    <View style={[styles.selectedDayDot, { backgroundColor: Colors.dark.textMuted }]} />
+                    <Text style={[styles.selectedDayName, { color: Colors.dark.textMuted }]}>{selectedDayData.programDay.name}</Text>
+                    <Text style={[styles.selectedDayBadge, { color: Colors.dark.textMuted }]}>
+                      {selectedDayData.isPast ? 'MISSED' : 'SCHEDULED'}
+                    </Text>
+                  </View>
+                  <View style={styles.selectedDayExercises}>
+                    {selectedDayData.programDay.exercises.slice(0, 3).map((ex, i) => (
+                      <View key={i} style={styles.selectedDayExRow}>
+                        <ExerciseIcon exerciseName={ex.exerciseName} size={22} color={Colors.dark.textMuted} />
+                        <Text style={[styles.selectedDayExName, { color: Colors.dark.textMuted }]} numberOfLines={1}>{ex.exerciseName}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                // Rest day
+                <View style={styles.selectedDayHeader}>
+                  <Text style={[styles.selectedDayName, { color: Colors.dark.textMuted }]}>Rest Day</Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Today's Workout */}
-        {todaysDay && (
+        {todaysDay && selectedDayIndex === null && (
           <TouchableOpacity activeOpacity={0.9} style={styles.todayContainer} onPress={handleStartStrength}>
             <LinearGradient colors={['#e8ff47', '#7fff00']} style={styles.todayCard}>
               <View style={styles.todayInfo}>
@@ -865,5 +996,109 @@ const styles = StyleSheet.create({
     fontSize: FontSize.base,
     fontWeight: FontWeight.semibold,
     color: Colors.dark.accent,
+  },
+
+  // Selected day card
+  selectedDayCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    marginTop: Spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  selectedDayDate: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold as any,
+    color: Colors.dark.textMuted,
+    letterSpacing: 0.5,
+    marginBottom: Spacing.md,
+    textTransform: 'uppercase' as any,
+  },
+  selectedDayHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    marginBottom: Spacing.md,
+  },
+  selectedDayDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  selectedDayName: {
+    fontSize: FontSize.xxl,
+    fontWeight: FontWeight.bold as any,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  selectedDayBadge: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold as any,
+    color: Colors.dark.accent,
+    letterSpacing: 1,
+  },
+  selectedDayStats: {
+    flexDirection: 'row' as const,
+    gap: 20,
+    marginBottom: Spacing.md,
+  },
+  selectedDayStat: {
+    flexDirection: 'row' as const,
+    alignItems: 'baseline' as const,
+    gap: 4,
+  },
+  selectedDayStatValue: {
+    fontSize: FontSize.title,
+    fontWeight: FontWeight.bold as any,
+    color: Colors.dark.text,
+  },
+  selectedDayStatLabel: {
+    fontSize: FontSize.sm,
+    color: Colors.dark.textMuted,
+  },
+  selectedDayNotes: {
+    fontSize: FontSize.base,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.md,
+    fontStyle: 'italic' as any,
+  },
+  selectedDayExercises: {
+    gap: 8,
+    marginBottom: Spacing.md,
+  },
+  selectedDayExRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 10,
+  },
+  selectedDayExName: {
+    fontSize: FontSize.base,
+    color: Colors.dark.textSecondary,
+    flex: 1,
+  },
+  selectedDayExSets: {
+    fontSize: FontSize.sm,
+    color: Colors.dark.textMuted,
+    fontWeight: FontWeight.semibold as any,
+  },
+  selectedDayMore: {
+    fontSize: FontSize.sm,
+    color: Colors.dark.textMuted,
+    marginTop: 4,
+    paddingLeft: 32,
+  },
+  selectedDayViewBtn: {
+    alignSelf: 'flex-start' as const,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginTop: Spacing.sm,
+  },
+  selectedDayViewText: {
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.semibold as any,
+    color: Colors.dark.textSecondary,
   },
 })
