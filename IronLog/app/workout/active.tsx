@@ -1,18 +1,24 @@
 import { useState, useEffect, useRef } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
+import { useRouter, Href } from 'expo-router'
 import { useWorkoutStore } from '@/stores/workout-store'
+import { useSessionStore } from '@/stores/session-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
 import { formatDuration } from '@/lib/utils'
+import * as db from '@/lib/database'
+import type { PersonalRecord } from '@/types'
 
 export default function ActiveWorkoutScreen() {
   const router = useRouter()
+  const { user, profile } = useAuthStore()
   const {
     programDayName, exercises, currentExerciseIndex, elapsedSeconds,
-    isResting, restTimerSeconds,
+    isResting, restTimerSeconds, sessionId,
     completeSet, nextExercise, updateElapsed, startRest, stopRest, endWorkout, isActive,
   } = useWorkoutStore()
+  const { setLastCompleted, setNewPRs, addSession, loadRecent } = useSessionStore()
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const restRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -60,15 +66,31 @@ export default function ActiveWorkoutScreen() {
   const currentExercise = exercises[currentExerciseIndex]
   const completedExercises = exercises.slice(0, currentExerciseIndex)
   const upNextExercises = exercises.slice(currentExerciseIndex + 1)
-  const completedSets = currentExercise.sets.filter((s) => s.isCompleted).length
 
-  const handleCompleteSet = (setIndex: number) => {
+  const handleCompleteSet = async (setIndex: number) => {
     const set = currentExercise.sets[setIndex]
     const weight = editingSet === setIndex && editWeight ? parseFloat(editWeight) : set.weight || set.previousWeight || 0
     const reps = editingSet === setIndex && editReps ? parseInt(editReps, 10) : set.reps || set.previousReps || 0
 
     completeSet(currentExerciseIndex, setIndex, weight, reps)
     setEditingSet(null)
+
+    // Save set to backend
+    if (user?.$id && sessionId) {
+      try {
+        await db.createWorkoutSet({
+          sessionId,
+          userId: user.$id,
+          exerciseId: currentExercise.exerciseId,
+          setNumber: set.setNumber,
+          weight,
+          reps,
+          isCompleted: true,
+        })
+      } catch {
+        // Continue even if backend fails
+      }
+    }
 
     // Auto-start rest if not last set
     if (setIndex < currentExercise.sets.length - 1) {
@@ -88,9 +110,76 @@ export default function ActiveWorkoutScreen() {
       {
         text: 'End',
         style: 'destructive',
-        onPress: () => {
-          endWorkout()
-          router.back()
+        onPress: async () => {
+          const { totalVolume, duration } = endWorkout()
+
+          // Save to backend
+          const completedSession = {
+            $id: sessionId ?? `local-${Date.now()}`,
+            userId: user?.$id ?? 'dev',
+            programDayId: '',
+            programDayName,
+            startedAt: new Date(Date.now() - duration * 1000).toISOString(),
+            completedAt: new Date().toISOString(),
+            totalVolume,
+            duration,
+            notes: '',
+          }
+
+          if (user?.$id && sessionId && !sessionId.startsWith('local-')) {
+            try {
+              await db.completeWorkoutSession(sessionId, {
+                completedAt: new Date().toISOString(),
+                totalVolume,
+                duration,
+              })
+
+              // Check for PRs
+              const newPRs: PersonalRecord[] = []
+              for (const ex of exercises) {
+                for (const s of ex.sets) {
+                  if (s.isCompleted && s.weight > 0) {
+                    try {
+                      const result = await db.checkAndUpdatePR(
+                        user.$id, ex.exerciseId, ex.exerciseName, s.weight, s.reps
+                      )
+                      if (result.isNewPR && result.record) {
+                        // Avoid duplicates
+                        if (!newPRs.find((p) => p.exerciseId === ex.exerciseId)) {
+                          newPRs.push(result.record)
+                        }
+                      }
+                    } catch {
+                      // Continue
+                    }
+                  }
+                }
+              }
+
+              // Update streak
+              if (profile?.$id) {
+                try {
+                  await db.updateStreak(user.$id, profile.$id)
+                } catch {
+                  // Continue
+                }
+              }
+
+              setNewPRs(newPRs)
+            } catch {
+              // Continue to summary even if backend fails
+            }
+          }
+
+          setLastCompleted(completedSession)
+          addSession(completedSession)
+
+          // Refresh recent sessions
+          if (user?.$id) {
+            loadRecent(user.$id)
+          }
+
+          router.replace('/workout/summary' as Href)
         },
       },
     ])

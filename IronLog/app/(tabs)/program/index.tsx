@@ -1,118 +1,111 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useRouter, Href } from 'expo-router'
+import { LinearGradient } from 'expo-linear-gradient'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
-
-interface SetData {
-  weight: number
-  reps: number
-}
-
-interface ExerciseData {
-  name: string
-  sets: SetData[]
-}
-
-interface DayData {
-  name: string
-  exercises: ExerciseData[]
-}
-
-const DEFAULT_PROGRAM: DayData[] = [
-  {
-    name: 'Push A',
-    exercises: [
-      { name: 'Bench Press', sets: [{ weight: 185, reps: 8 }, { weight: 185, reps: 8 }, { weight: 195, reps: 6 }, { weight: 195, reps: 6 }] },
-      { name: 'Incline DB Press', sets: [{ weight: 65, reps: 10 }, { weight: 65, reps: 10 }, { weight: 70, reps: 8 }] },
-      { name: 'Cable Flyes', sets: [{ weight: 30, reps: 12 }, { weight: 30, reps: 12 }, { weight: 30, reps: 12 }] },
-      { name: 'OHP', sets: [{ weight: 115, reps: 8 }, { weight: 115, reps: 8 }, { weight: 120, reps: 6 }] },
-      { name: 'Tricep Pushdown', sets: [{ weight: 50, reps: 12 }, { weight: 55, reps: 10 }, { weight: 55, reps: 10 }] },
-    ],
-  },
-  {
-    name: 'Pull A',
-    exercises: [
-      { name: 'Barbell Row', sets: [{ weight: 155, reps: 8 }, { weight: 155, reps: 8 }, { weight: 165, reps: 6 }] },
-      { name: 'Lat Pulldown', sets: [{ weight: 120, reps: 10 }, { weight: 120, reps: 10 }, { weight: 130, reps: 8 }] },
-      { name: 'Seated Cable Row', sets: [{ weight: 100, reps: 12 }, { weight: 100, reps: 12 }, { weight: 110, reps: 10 }] },
-      { name: 'Face Pulls', sets: [{ weight: 40, reps: 15 }, { weight: 40, reps: 15 }] },
-      { name: 'Barbell Curl', sets: [{ weight: 65, reps: 10 }, { weight: 65, reps: 10 }, { weight: 70, reps: 8 }] },
-    ],
-  },
-  {
-    name: 'Legs',
-    exercises: [
-      { name: 'Barbell Squat', sets: [{ weight: 225, reps: 6 }, { weight: 225, reps: 6 }, { weight: 235, reps: 5 }, { weight: 235, reps: 5 }] },
-      { name: 'Romanian Deadlift', sets: [{ weight: 185, reps: 8 }, { weight: 185, reps: 8 }, { weight: 195, reps: 6 }] },
-      { name: 'Leg Press', sets: [{ weight: 360, reps: 10 }, { weight: 360, reps: 10 }, { weight: 400, reps: 8 }] },
-      { name: 'Leg Curl', sets: [{ weight: 90, reps: 12 }, { weight: 90, reps: 12 }, { weight: 100, reps: 10 }] },
-      { name: 'Calf Raises', sets: [{ weight: 180, reps: 15 }, { weight: 180, reps: 15 }, { weight: 200, reps: 12 }] },
-    ],
-  },
-  {
-    name: 'Push B',
-    exercises: [
-      { name: 'OHP', sets: [{ weight: 120, reps: 8 }, { weight: 120, reps: 8 }, { weight: 125, reps: 6 }] },
-      { name: 'Incline DB Press', sets: [{ weight: 70, reps: 8 }, { weight: 70, reps: 8 }, { weight: 75, reps: 6 }] },
-      { name: 'Cable Flyes', sets: [{ weight: 35, reps: 12 }, { weight: 35, reps: 12 }] },
-      { name: 'Lateral Raises', sets: [{ weight: 20, reps: 15 }, { weight: 20, reps: 15 }, { weight: 25, reps: 12 }] },
-      { name: 'Skull Crushers', sets: [{ weight: 60, reps: 10 }, { weight: 60, reps: 10 }, { weight: 65, reps: 8 }] },
-    ],
-  },
-  {
-    name: 'Pull B',
-    exercises: [
-      { name: 'Deadlift', sets: [{ weight: 275, reps: 5 }, { weight: 275, reps: 5 }, { weight: 295, reps: 3 }] },
-      { name: 'Pull-ups', sets: [{ weight: 0, reps: 8 }, { weight: 0, reps: 8 }, { weight: 0, reps: 6 }] },
-      { name: 'T-Bar Row', sets: [{ weight: 90, reps: 10 }, { weight: 90, reps: 10 }, { weight: 100, reps: 8 }] },
-      { name: 'Face Pulls', sets: [{ weight: 45, reps: 15 }, { weight: 45, reps: 15 }] },
-      { name: 'Hammer Curls', sets: [{ weight: 30, reps: 12 }, { weight: 30, reps: 12 }, { weight: 35, reps: 10 }] },
-    ],
-  },
-  {
-    name: 'Legs B',
-    exercises: [
-      { name: 'Leg Press', sets: [{ weight: 400, reps: 8 }, { weight: 400, reps: 8 }, { weight: 440, reps: 6 }] },
-      { name: 'Bulgarian Split Squat', sets: [{ weight: 40, reps: 10 }, { weight: 40, reps: 10 }, { weight: 45, reps: 8 }] },
-      { name: 'Leg Curl', sets: [{ weight: 100, reps: 10 }, { weight: 100, reps: 10 }, { weight: 110, reps: 8 }] },
-      { name: 'Leg Extension', sets: [{ weight: 110, reps: 12 }, { weight: 110, reps: 12 }, { weight: 120, reps: 10 }] },
-      { name: 'Calf Raises', sets: [{ weight: 200, reps: 15 }, { weight: 200, reps: 15 }] },
-    ],
-  },
-]
+import { useAuthStore } from '@/stores/auth-store'
+import { useProgramStore } from '@/stores/program-store'
+import { useWorkoutStore } from '@/stores/workout-store'
+import { createWorkoutSession } from '@/lib/database'
+import type { ActiveWorkoutExercise } from '@/types'
 
 export default function ProgramScreen() {
-  const [activeDay, setActiveDay] = useState(0)
-  const [program, setProgram] = useState(DEFAULT_PROGRAM)
+  const { user } = useAuthStore()
+  const {
+    currentProgram, days, activeDayIndex,
+    setActiveDayIndex, updateDayExercises, saveDayToBackend, loadPrograms,
+  } = useProgramStore()
+  const { startWorkout } = useWorkoutStore()
+  const router = useRouter()
   const [editingCell, setEditingCell] = useState<{ ex: number; set: number; field: 'weight' | 'reps' } | null>(null)
 
-  const currentDay = program[activeDay]
+  useEffect(() => {
+    if (user?.$id) {
+      loadPrograms(user.$id)
+    }
+  }, [user?.$id])
+
+  const currentDay = days[activeDayIndex]
 
   const handleCellEdit = (exIdx: number, setIdx: number, field: 'weight' | 'reps', value: string) => {
     const num = parseInt(value, 10)
-    if (isNaN(num)) return
+    if (isNaN(num) || !currentDay) return
 
-    setProgram((prev) => {
-      const updated = [...prev]
-      const day = { ...updated[activeDay] }
-      const exercises = [...day.exercises]
-      const exercise = { ...exercises[exIdx] }
-      const sets = [...exercise.sets]
-      sets[setIdx] = { ...sets[setIdx], [field]: num }
-      exercise.sets = sets
-      exercises[exIdx] = exercise
-      day.exercises = exercises
-      updated[activeDay] = day
-      return updated
+    const exercises = currentDay.exercises.map((ex, ei) => {
+      if (ei !== exIdx) return ex
+      const sets = ex.sets.map((s, si) => {
+        if (si !== setIdx) return s
+        return { ...s, [field]: num }
+      })
+      return { ...ex, sets }
     })
+
+    updateDayExercises(activeDayIndex, exercises)
+    // Debounce save to backend
+    saveDayToBackend(activeDayIndex)
+  }
+
+  const handleStartWorkout = async () => {
+    if (!user?.$id || !currentDay) return
+
+    const activeExercises: ActiveWorkoutExercise[] = currentDay.exercises.map((ex) => ({
+      exerciseId: ex.exerciseId,
+      exerciseName: ex.exerciseName,
+      sets: ex.sets.map((s, i) => ({
+        setNumber: i + 1,
+        weight: s.weight,
+        reps: s.reps,
+        previousWeight: s.weight,
+        previousReps: s.reps,
+        isCompleted: false,
+      })),
+      restSeconds: 90,
+    }))
+
+    try {
+      const session = await createWorkoutSession({
+        userId: user.$id,
+        programDayId: currentDay.$id,
+        programDayName: currentDay.name,
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+        totalVolume: 0,
+        duration: 0,
+        notes: '',
+      })
+      startWorkout({ sessionId: session.$id, programDayName: currentDay.name, exercises: activeExercises })
+    } catch {
+      startWorkout({ sessionId: `local-${Date.now()}`, programDayName: currentDay.name, exercises: activeExercises })
+    }
+
+    router.push('/workout/active' as Href)
+  }
+
+  const handleAddExercise = () => {
+    // Navigate to library to pick an exercise
+    router.push('/(tabs)/library' as Href)
+  }
+
+  if (!currentProgram || days.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>No program yet</Text>
+          <Text style={styles.emptySubtext}>Create your first program to get started</Text>
+        </View>
+      </SafeAreaView>
+    )
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerLabel}>MY PROGRAM</Text>
-        <Text style={styles.headerTitle}>Push Pull Legs</Text>
-        <Text style={styles.headerSubtitle}>6 days/week · Week 4 of 8</Text>
+        <Text style={styles.headerTitle}>{currentProgram.name}</Text>
+        <Text style={styles.headerSubtitle}>
+          {currentProgram.daysPerWeek} days/week · Week {currentProgram.currentWeek} of {currentProgram.totalWeeks}
+        </Text>
       </View>
 
       {/* Day tabs */}
@@ -121,29 +114,28 @@ export default function ProgramScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.dayTabs}
       >
-        {program.map((day, i) => (
+        {days.map((day, i) => (
           <TouchableOpacity
             key={i}
-            onPress={() => { setActiveDay(i); setEditingCell(null) }}
-            style={[styles.dayTab, activeDay === i && styles.dayTabActive]}
+            onPress={() => { setActiveDayIndex(i); setEditingCell(null) }}
+            style={[styles.dayTab, activeDayIndex === i && styles.dayTabActive]}
           >
-            <Text style={[styles.dayTabText, activeDay === i && styles.dayTabTextActive]}>{day.name}</Text>
+            <Text style={[styles.dayTabText, activeDayIndex === i && styles.dayTabTextActive]}>{day.name}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
       {/* Exercises */}
       <ScrollView style={styles.exerciseList} showsVerticalScrollIndicator={false}>
-        {currentDay.exercises.map((ex, exIdx) => (
+        {currentDay?.exercises.map((ex, exIdx) => (
           <View key={exIdx} style={styles.exerciseBlock}>
             <View style={styles.exerciseHeader}>
-              <Text style={styles.exerciseName}>{ex.name}</Text>
+              <Text style={styles.exerciseName}>{ex.exerciseName}</Text>
               <Text style={styles.editIcon}>✏️</Text>
             </View>
             <View style={styles.setsRow}>
               {ex.sets.map((s, setIdx) => {
-                const isEditing =
-                  editingCell?.ex === exIdx && editingCell?.set === setIdx
+                const isEditing = editingCell?.ex === exIdx && editingCell?.set === setIdx
 
                 return (
                   <TouchableOpacity
@@ -190,9 +182,18 @@ export default function ProgramScreen() {
         ))}
 
         {/* Add exercise */}
-        <TouchableOpacity style={styles.addExercise}>
+        <TouchableOpacity style={styles.addExercise} onPress={handleAddExercise}>
           <Text style={styles.addExerciseText}>+ Add Exercise</Text>
         </TouchableOpacity>
+
+        {/* Start Workout button */}
+        <TouchableOpacity onPress={handleStartWorkout} activeOpacity={0.8} style={styles.startContainer}>
+          <LinearGradient colors={['#e8ff47', '#a8e000']} style={styles.startButton}>
+            <Text style={styles.startButtonText}>▶ Start {currentDay?.name}</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <View style={{ height: 30 }} />
       </ScrollView>
     </SafeAreaView>
   )
@@ -202,6 +203,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.background,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  emptyText: {
+    color: Colors.dark.textMuted,
+    fontSize: FontSize.xxl,
+    fontWeight: FontWeight.bold,
+  },
+  emptySubtext: {
+    color: Colors.dark.textDark,
+    fontSize: FontSize.base,
   },
   header: {
     paddingHorizontal: Spacing.xxl,
@@ -315,10 +331,24 @@ const styles = StyleSheet.create({
     padding: Spacing.md + 2,
     alignItems: 'center',
     marginTop: Spacing.md,
-    marginBottom: Spacing.xxl,
+    marginBottom: Spacing.lg,
   },
   addExerciseText: {
     color: Colors.dark.textMuted,
     fontSize: FontSize.base,
+  },
+  startContainer: {
+    marginBottom: Spacing.xxl,
+  },
+  startButton: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: 'center',
+  },
+  startButtonText: {
+    color: Colors.dark.textOnAccent,
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 0.5,
   },
 })

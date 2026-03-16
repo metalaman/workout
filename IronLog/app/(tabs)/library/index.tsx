@@ -26,6 +26,13 @@ export default function LibraryScreen() {
     })
   }, [search, selectedCategory, muscleGroups, equipment, difficulty])
 
+  const handleExercisePress = (index: number) => {
+    // Find the original index in SEED_EXERCISES
+    const exercise = filteredExercises[index]
+    const originalIndex = SEED_EXERCISES.indexOf(exercise)
+    router.push(`/(tabs)/library/${originalIndex}` as Href)
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -71,17 +78,19 @@ export default function LibraryScreen() {
         data={filteredExercises}
         keyExtractor={(_, i) => i.toString()}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <View style={styles.exerciseRow}>
-            <View style={styles.exerciseIcon}>
-              <Text style={styles.exerciseEmoji}>{item.icon}</Text>
+        renderItem={({ item, index }) => (
+          <TouchableOpacity onPress={() => handleExercisePress(index)} activeOpacity={0.7}>
+            <View style={styles.exerciseRow}>
+              <View style={styles.exerciseIcon}>
+                <Text style={styles.exerciseEmoji}>{item.icon}</Text>
+              </View>
+              <View style={styles.exerciseInfo}>
+                <Text style={styles.exerciseName}>{item.name}</Text>
+                <Text style={styles.exerciseMuscle}>{item.muscleGroup}</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
             </View>
-            <View style={styles.exerciseInfo}>
-              <Text style={styles.exerciseName}>{item.name}</Text>
-              <Text style={styles.exerciseMuscle}>{item.muscleGroup}</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </View>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
