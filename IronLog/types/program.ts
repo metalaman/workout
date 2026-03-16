@@ -1,12 +1,16 @@
 export interface ProgramSet {
   weight: number
   reps: number
+  isDropSet?: boolean
 }
 
 export interface ProgramExercise {
   exerciseId: string
   exerciseName: string
   sets: ProgramSet[]
+  supersetGroup?: number
+  restSeconds?: number
+  notes?: string
 }
 
 export interface ProgramDay {
