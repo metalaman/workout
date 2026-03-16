@@ -13,6 +13,11 @@ import Svg, { Path } from 'react-native-svg'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+const PROGRAM_COLORS = [
+  '#e8ff47', '#ff6b6b', '#6bc5ff', '#7fff00',
+  '#ffaa47', '#c77dff', '#ff69b4', '#00d4aa',
+]
+
 export default function CreateProgramScreen() {
   const router = useRouter()
   const { user } = useAuthStore()
@@ -20,6 +25,7 @@ export default function CreateProgramScreen() {
 
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
+  const [selectedColor, setSelectedColor] = useState(PROGRAM_COLORS[0])
   const [daysPerWeek, setDaysPerWeek] = useState(3)
   const [totalWeeks, setTotalWeeks] = useState('8')
   const [isCreating, setIsCreating] = useState(false)
@@ -28,24 +34,22 @@ export default function CreateProgramScreen() {
     if (!name.trim() || !user?.$id || isCreating) return
     setIsCreating(true)
     try {
-      // Race the Appwrite call against a 5s timeout to prevent hanging
       await Promise.race([
         createNewProgram(
           name.trim(),
           daysPerWeek,
           parseInt(totalWeeks, 10) || 8,
-          user.$id
+          user.$id,
+          selectedColor,
         ),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 5000)
+          setTimeout(() => reject(new Error('timeout')), 3000)
         ),
       ])
     } catch {
-      // createNewProgram already has a local fallback in its catch block,
-      // so the program is created locally even on failure
+      // createNewProgram has local fallback
     } finally {
       setIsCreating(false)
-      // Always navigate to day builder regardless of success/failure
       router.push('/(tabs)/program/edit-day?dayIndex=0&isNew=true' as Href)
     }
   }
@@ -74,8 +78,8 @@ export default function CreateProgramScreen() {
               key={i}
               style={[
                 styles.progressDot,
-                i <= step && styles.progressDotActive,
-                i < step && styles.progressDotDone,
+                i <= step && { backgroundColor: selectedColor },
+                i < step && { opacity: 0.5 },
               ]}
             />
           ))}
@@ -89,12 +93,12 @@ export default function CreateProgramScreen() {
           {step === 0 && (
             <View style={styles.stepContainer}>
               <Text style={styles.stepLabel}>STEP 1 OF 3</Text>
-              <Text style={styles.stepTitle}>Name your program</Text>
+              <Text style={styles.stepTitle}>Name & Color</Text>
               <Text style={styles.stepSubtitle}>
-                Give it a memorable name like "Push Pull Legs" or "Upper Lower Split"
+                Give it a memorable name and pick a color to identify it
               </Text>
               <TextInput
-                style={styles.nameInput}
+                style={[styles.nameInput, { borderColor: selectedColor + '40' }]}
                 value={name}
                 onChangeText={setName}
                 placeholder="e.g. Push Pull Legs"
@@ -105,6 +109,27 @@ export default function CreateProgramScreen() {
                 onSubmitEditing={() => name.trim() && setStep(1)}
               />
               <Text style={styles.charCount}>{name.length}/40</Text>
+
+              {/* Color Picker */}
+              <Text style={styles.colorLabel}>PROGRAM COLOR</Text>
+              <View style={styles.colorRow}>
+                {PROGRAM_COLORS.map((color) => (
+                  <TouchableOpacity
+                    key={color}
+                    style={[
+                      styles.colorCircle,
+                      { backgroundColor: color },
+                      selectedColor === color && styles.colorCircleSelected,
+                    ]}
+                    onPress={() => setSelectedColor(color)}
+                    activeOpacity={0.7}
+                  >
+                    {selectedColor === color && (
+                      <Text style={styles.colorCheck}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           )}
 
@@ -124,11 +149,11 @@ export default function CreateProgramScreen() {
                       key={label}
                       onPress={() => setDaysPerWeek(dayNum)}
                       activeOpacity={0.7}
-                      style={[styles.dayPill, isSelected && styles.dayPillSelected]}
+                      style={[styles.dayPill, isSelected && { borderColor: selectedColor + '60' }]}
                     >
                       {isSelected ? (
                         <LinearGradient
-                          colors={[Colors.dark.accent, Colors.dark.accentGreen]}
+                          colors={[selectedColor, Colors.dark.accentGreen]}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
                           style={styles.dayPillGradient}
@@ -146,8 +171,8 @@ export default function CreateProgramScreen() {
                   )
                 })}
               </View>
-              <View style={styles.daySummary}>
-                <Text style={styles.daySummaryText}>
+              <View style={[styles.daySummary, { backgroundColor: selectedColor + '10' }]}>
+                <Text style={[styles.daySummaryText, { color: selectedColor }]}>
                   {daysPerWeek} day{daysPerWeek !== 1 ? 's' : ''} per week
                 </Text>
               </View>
@@ -171,7 +196,7 @@ export default function CreateProgramScreen() {
                 </TouchableOpacity>
                 <View style={styles.weeksInputWrap}>
                   <TextInput
-                    style={styles.weeksInput}
+                    style={[styles.weeksInput, { color: selectedColor }]}
                     value={totalWeeks}
                     onChangeText={setTotalWeeks}
                     keyboardType="number-pad"
@@ -194,7 +219,7 @@ export default function CreateProgramScreen() {
                     key={w}
                     style={[
                       styles.quickWeekPill,
-                      parseInt(totalWeeks, 10) === w && styles.quickWeekPillActive,
+                      parseInt(totalWeeks, 10) === w && { backgroundColor: selectedColor + '15', borderColor: selectedColor + '40' },
                     ]}
                     onPress={() => setTotalWeeks(String(w))}
                     activeOpacity={0.7}
@@ -202,7 +227,7 @@ export default function CreateProgramScreen() {
                     <Text
                       style={[
                         styles.quickWeekText,
-                        parseInt(totalWeeks, 10) === w && styles.quickWeekTextActive,
+                        parseInt(totalWeeks, 10) === w && { color: selectedColor },
                       ]}
                     >
                       {w}w
@@ -237,7 +262,7 @@ export default function CreateProgramScreen() {
               disabled={step === 0 && !name.trim()}
             >
               <LinearGradient
-                colors={[Colors.dark.accent, Colors.dark.accentGreen]}
+                colors={[selectedColor, Colors.dark.accentGreen]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.nextBtnGradient}
@@ -256,7 +281,7 @@ export default function CreateProgramScreen() {
               disabled={isCreating}
             >
               <LinearGradient
-                colors={[Colors.dark.accent, Colors.dark.accentGreen]}
+                colors={[selectedColor, Colors.dark.accentGreen]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.nextBtnGradient}
@@ -277,11 +302,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.background },
   flex: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.lg,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg,
   },
   backBtn: {
     width: 40, height: 40, borderRadius: BorderRadius.full,
@@ -289,8 +311,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: FontSize.xxl, fontWeight: FontWeight.bold,
-    color: Colors.dark.text,
+    fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.dark.text,
   },
   progressRow: {
     flexDirection: 'row', justifyContent: 'center',
@@ -300,15 +321,8 @@ const styles = StyleSheet.create({
     width: 32, height: 4, borderRadius: 2,
     backgroundColor: Colors.dark.surface,
   },
-  progressDotActive: {
-    backgroundColor: Colors.dark.accent,
-  },
-  progressDotDone: {
-    backgroundColor: Colors.dark.accentDark,
-  },
   content: {
-    paddingHorizontal: Spacing.xxl,
-    paddingTop: Spacing.xxxxl,
+    paddingHorizontal: Spacing.xxl, paddingTop: Spacing.xxxl,
   },
   stepContainer: {},
   stepLabel: {
@@ -322,7 +336,7 @@ const styles = StyleSheet.create({
   },
   stepSubtitle: {
     fontSize: FontSize.xl, color: Colors.dark.textSecondary,
-    lineHeight: 20, marginBottom: Spacing.xxxxl,
+    lineHeight: 20, marginBottom: Spacing.xxxl,
   },
   nameInput: {
     backgroundColor: Colors.dark.surface,
@@ -333,12 +347,34 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
     color: Colors.dark.text,
     borderWidth: 1,
-    borderColor: Colors.dark.accentBorder,
   },
   charCount: {
     fontSize: FontSize.sm, color: Colors.dark.textMuted,
     textAlign: 'right', marginTop: Spacing.sm,
   },
+
+  // Color picker
+  colorLabel: {
+    fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.dark.textMuted,
+    letterSpacing: 1.5, marginTop: Spacing.xxxl, marginBottom: Spacing.lg,
+  },
+  colorRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 14,
+  },
+  colorCircle: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: 'transparent',
+  },
+  colorCircleSelected: {
+    borderColor: '#ffffff',
+    shadowColor: '#fff', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3, shadowRadius: 8,
+  },
+  colorCheck: {
+    fontSize: 16, fontWeight: FontWeight.bold, color: Colors.dark.textOnAccent,
+  },
+
   dayGrid: {
     flexDirection: 'row', flexWrap: 'wrap',
     gap: 10, justifyContent: 'center',
@@ -348,9 +384,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: Colors.dark.surface,
     borderWidth: 1, borderColor: Colors.dark.border,
-  },
-  dayPillSelected: {
-    borderColor: Colors.dark.accentBorderStrong,
   },
   dayPillGradient: {
     flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2,
@@ -363,19 +396,15 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   dayPillTextSelected: { color: Colors.dark.textOnAccent },
-  dayPillNum: {
-    fontSize: FontSize.sm, color: Colors.dark.textMuted,
-  },
+  dayPillNum: { fontSize: FontSize.sm, color: Colors.dark.textMuted },
   dayPillNumSelected: { color: 'rgba(0,0,0,0.5)' },
   daySummary: {
     alignItems: 'center', marginTop: Spacing.xxl,
     paddingVertical: Spacing.lg,
-    backgroundColor: Colors.dark.accentSurface,
     borderRadius: BorderRadius.lg,
   },
   daySummaryText: {
     fontSize: FontSize.xl, fontWeight: FontWeight.semibold,
-    color: Colors.dark.accent,
   },
   weeksRow: {
     flexDirection: 'row', alignItems: 'center',
@@ -394,8 +423,7 @@ const styles = StyleSheet.create({
   weeksInputWrap: { alignItems: 'center' },
   weeksInput: {
     fontSize: 48, fontWeight: FontWeight.black,
-    color: Colors.dark.accent, textAlign: 'center',
-    minWidth: 80,
+    textAlign: 'center', minWidth: 80,
   },
   weeksLabel: {
     fontSize: FontSize.base, color: Colors.dark.textSecondary,
@@ -411,15 +439,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.surface,
     borderWidth: 1, borderColor: Colors.dark.border,
   },
-  quickWeekPillActive: {
-    backgroundColor: Colors.dark.accentSurface,
-    borderColor: Colors.dark.accentBorderStrong,
-  },
   quickWeekText: {
     fontSize: FontSize.lg, fontWeight: FontWeight.semibold,
     color: Colors.dark.textSecondary,
   },
-  quickWeekTextActive: { color: Colors.dark.accent },
   bottomBar: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: Spacing.xxl,

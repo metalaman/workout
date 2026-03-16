@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Dimensions, Keyboard, Alert, Modal, Pressable,
+  TextInput, Dimensions, Alert, Animated, PanResponder,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, Href } from 'expo-router'
@@ -18,6 +18,8 @@ import Svg, { Path } from 'react-native-svg'
 const TABS = ['Exercises', 'Overview', 'Notes'] as const
 type TabName = typeof TABS[number]
 
+const CARD_HEIGHT = 80
+
 function guessMuscleGroup(name: string): string {
   const n = name.toLowerCase()
   if (n.includes('bench') || n.includes('chest') || n.includes('fly') || n.includes('dip') || n.includes('push up')) return 'Chest'
@@ -29,6 +31,130 @@ function guessMuscleGroup(name: string): string {
   return 'Chest'
 }
 
+// ─── Draggable Exercise Card ───────────────────────────────────────────
+function DraggableExerciseCard({
+  ex, exIdx, exerciseCount, activeDayIndex, muscleColor, setsText,
+  hasDropSets, isFirstSS, inSS, menuExIdx, setMenuExIdx,
+  moveExercise, updateDayExercises, saveDayToBackend, exercises, router,
+}: any) {
+  const pan = useRef(new Animated.ValueXY()).current
+  const [isDragging, setIsDragging] = useState(false)
+  const dragScale = useRef(new Animated.Value(1)).current
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
+      onPanResponderGrant: () => {
+        setIsDragging(true)
+        Animated.spring(dragScale, { toValue: 1.03, useNativeDriver: true }).start()
+      },
+      onPanResponderMove: Animated.event([null, { dy: pan.y }], { useNativeDriver: false }),
+      onPanResponderRelease: (_, gesture) => {
+        setIsDragging(false)
+        Animated.spring(dragScale, { toValue: 1, useNativeDriver: true }).start()
+        const movedBy = Math.round(gesture.dy / CARD_HEIGHT)
+        if (movedBy !== 0) {
+          const targetIdx = Math.max(0, Math.min(exerciseCount - 1, exIdx + movedBy))
+          if (targetIdx !== exIdx) {
+            // Move step by step
+            const dir = movedBy > 0 ? 'down' : 'up'
+            const steps = Math.abs(movedBy)
+            for (let s = 0; s < steps; s++) {
+              moveExercise(activeDayIndex, movedBy > 0 ? exIdx + s : exIdx - s, dir)
+            }
+          }
+        }
+        Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true }).start()
+      },
+    })
+  ).current
+
+  return (
+    <View key={exIdx}>
+      {isFirstSS && (
+        <View style={styles.ssLabel}>
+          <View style={[styles.ssLine, { backgroundColor: Colors.dark.accent }]} />
+          <Text style={styles.ssText}>SUPERSET</Text>
+          <View style={[styles.ssLine, { backgroundColor: Colors.dark.accent }]} />
+        </View>
+      )}
+      <Animated.View
+        style={[
+          styles.exCard,
+          { borderColor: Colors.dark.border },
+          isDragging && styles.exCardDragging,
+          {
+            transform: [
+              { translateY: pan.y },
+              { scale: dragScale },
+            ],
+            zIndex: isDragging ? 100 : 1,
+          },
+        ]}
+      >
+        <View style={styles.exRow}>
+          {/* Drag handle */}
+          <View {...panResponder.panHandlers} style={styles.dragHandle}>
+            <Text style={styles.dragIcon}>⠿</Text>
+          </View>
+          {/* Exercise icon */}
+          <View style={[styles.exIconWrap, { backgroundColor: `${muscleColor}12` }]}>
+            <ExerciseIcon exerciseName={ex.exerciseName} size={50} color={muscleColor} />
+          </View>
+          <View style={styles.exInfo}>
+            <Text style={styles.exName} numberOfLines={1}>{ex.exerciseName}</Text>
+            <View style={styles.exBadgeRow}>
+              <View style={[styles.exBadge, { backgroundColor: `${muscleColor}18` }]}>
+                <Text style={[styles.exBadgeText, { color: muscleColor }]}>{setsText}</Text>
+              </View>
+              {hasDropSets && (
+                <View style={[styles.exBadge, { backgroundColor: 'rgba(255,107,107,0.12)' }]}>
+                  <Text style={[styles.exBadgeText, { color: Colors.dark.danger }]}>DROP</Text>
+                </View>
+              )}
+              {ex.restSeconds && (
+                <View style={[styles.exBadge, { backgroundColor: Colors.dark.surface }]}>
+                  <Text style={[styles.exBadgeText, { color: Colors.dark.textMuted }]}>{ex.restSeconds}s</Text>
+                </View>
+              )}
+            </View>
+          </View>
+          {/* Three-dot menu */}
+          <TouchableOpacity
+            style={styles.menuBtn}
+            onPress={() => setMenuExIdx(menuExIdx === exIdx ? null : exIdx)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuDots}>⋯</Text>
+          </TouchableOpacity>
+        </View>
+
+        {menuExIdx === exIdx && (
+          <View style={styles.contextMenu}>
+            <TouchableOpacity style={styles.contextItem} onPress={() => {
+              setMenuExIdx(null)
+              router.push(`/(tabs)/program/pick-exercise?dayIndex=${activeDayIndex}&swapIndex=${exIdx}` as Href)
+            }}>
+              <Text style={styles.contextText}>⟷ Swap Exercise</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.contextItem, { borderBottomWidth: 0 }]} onPress={() => {
+              const exs = [...exercises]
+              exs.splice(exIdx, 1)
+              updateDayExercises(activeDayIndex, exs)
+              saveDayToBackend(activeDayIndex)
+              setMenuExIdx(null)
+            }}>
+              <Text style={[styles.contextText, { color: Colors.dark.danger }]}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </Animated.View>
+    </View>
+  )
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────
 export default function ProgramScreen() {
   const { user } = useAuthStore()
   const {
@@ -39,6 +165,7 @@ export default function ProgramScreen() {
   const { startWorkout } = useWorkoutStore()
   const router = useRouter()
 
+  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list')
   const [activeTab, setActiveTab] = useState<TabName>('Exercises')
   const [menuExIdx, setMenuExIdx] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
@@ -47,7 +174,20 @@ export default function ProgramScreen() {
     if (user?.$id) loadPrograms(user.$id)
   }, [user?.$id])
 
+  // Auto-switch to detail if there's only one program
+  useEffect(() => {
+    if (programs.length === 1 && currentProgram) {
+      setViewMode('detail')
+    }
+  }, [programs.length, currentProgram])
+
   const currentDay = days[activeDayIndex]
+  const exercises = currentDay?.exercises ?? []
+
+  const handleSelectProgram = (program: typeof programs[0]) => {
+    setCurrentProgram(program)
+    setViewMode('detail')
+  }
 
   const handleStartWorkout = async () => {
     if (!user?.$id || !currentDay) return
@@ -78,11 +218,13 @@ export default function ProgramScreen() {
     if (!currentProgram) return
     Alert.alert('Delete Program', `Delete "${currentProgram.name}"? This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteProgram(currentProgram.$id) },
+      { text: 'Delete', style: 'destructive', onPress: () => {
+        deleteProgram(currentProgram.$id)
+        setViewMode('list')
+      }},
     ])
   }
 
-  const exercises = currentDay?.exercises ?? []
   const supersetGroups = new Map<number, number[]>()
   exercises.forEach((ex, i) => {
     if (ex.supersetGroup != null) {
@@ -98,53 +240,100 @@ export default function ProgramScreen() {
   }
   const isInSuperset = (idx: number) => exercises[idx]?.supersetGroup != null
 
-  // Total sets/volume for overview
   const totalSets = exercises.reduce((acc, ex) => acc + ex.sets.length, 0)
   const totalVolume = exercises.reduce((acc, ex) => acc + ex.sets.reduce((a, s) => a + s.weight * s.reps, 0), 0)
   const muscleGroups = [...new Set(exercises.map((ex) => guessMuscleGroup(ex.exerciseName)))]
 
-  // Empty state
-  if (!currentProgram || programs.length === 0) {
+  // ─── LIST VIEW ───────────────────────────────────────────────────────
+  if (viewMode === 'list') {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconWrap}>
-            <Svg width={48} height={48} viewBox="0 0 24 24" fill="none">
-              <Path d="M12 6v12M6 12h12" stroke={Colors.dark.accent} strokeWidth={2} strokeLinecap="round" />
-            </Svg>
-          </View>
-          <Text style={styles.emptyTitle}>No Program Yet</Text>
-          <Text style={styles.emptySubtitle}>Create a workout program to get started</Text>
-          <TouchableOpacity
-            style={styles.emptyBtn}
-            onPress={() => router.push('/(tabs)/program/create' as Href)}
-            activeOpacity={0.7}
-          >
-            <LinearGradient
-              colors={[Colors.dark.accent, Colors.dark.accentGreen]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={styles.emptyBtnGradient}
-            >
-              <Text style={styles.emptyBtnText}>Create Your First Program</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+        <View style={styles.listHeader}>
+          <Text style={styles.listTitle}>My Programs</Text>
         </View>
+
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.listContent}>
+          {programs.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconWrap}>
+                <Svg width={48} height={48} viewBox="0 0 24 24" fill="none">
+                  <Path d="M12 6v12M6 12h12" stroke={Colors.dark.accent} strokeWidth={2} strokeLinecap="round" />
+                </Svg>
+              </View>
+              <Text style={styles.emptyTitle}>No Programs Yet</Text>
+              <Text style={styles.emptySubtitle}>Create a workout program to get started</Text>
+              <TouchableOpacity
+                style={styles.emptyBtn}
+                onPress={() => router.push('/(tabs)/program/create' as Href)}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.accent, Colors.dark.accentGreen]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={styles.emptyBtnGradient}
+                >
+                  <Text style={styles.emptyBtnText}>Create Your First Program</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            programs.map((prog) => (
+              <TouchableOpacity
+                key={prog.$id}
+                style={styles.programCard}
+                onPress={() => handleSelectProgram(prog)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.programDot, { backgroundColor: prog.color || Colors.dark.accent }]} />
+                <View style={styles.programInfo}>
+                  <Text style={styles.programName}>{prog.name}</Text>
+                  <Text style={styles.programMeta}>
+                    {prog.daysPerWeek} days/week · {prog.totalWeeks} weeks
+                  </Text>
+                </View>
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                  <Path d="M9 18l6-6-6-6" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </TouchableOpacity>
+            ))
+          )}
+          <View style={{ height: 100 }} />
+        </ScrollView>
+
+        {/* FAB for create */}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push('/(tabs)/program/create' as Href)}
+          activeOpacity={0.8}
+        >
+          <LinearGradient colors={[Colors.dark.accent, Colors.dark.accentGreen]} style={styles.fabGradient}>
+            <Text style={styles.fabIcon}>+</Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </SafeAreaView>
     )
   }
 
+  // ─── DETAIL VIEW ─────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Workout Header Card */}
+      {/* Header with back to list */}
       <View style={styles.headerCard}>
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerLabel}>
-              {currentProgram.name} · Week {currentProgram.currentWeek}
-            </Text>
+            <TouchableOpacity
+              onPress={() => setViewMode('list')}
+              style={styles.backToList}
+              activeOpacity={0.7}
+            >
+              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                <Path d="M19 12H5M12 19l-7-7 7-7" stroke={Colors.dark.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+              <Text style={styles.backToListText}>My Programs</Text>
+            </TouchableOpacity>
             <Text style={styles.headerTitle}>{currentDay?.name ?? 'Select a day'}</Text>
             <Text style={styles.headerSub}>
-              {exercises.length} exercises · {totalSets} sets
+              {currentProgram?.name} · Week {currentProgram?.currentWeek} · {exercises.length} exercises
             </Text>
           </View>
           <View style={styles.headerActions}>
@@ -173,13 +362,10 @@ export default function ProgramScreen() {
           {days.map((day, i) => {
             const isActive = i === activeDayIndex
             return (
-              <TouchableOpacity
-                key={i} onPress={() => setActiveDayIndex(i)}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity key={i} onPress={() => setActiveDayIndex(i)} activeOpacity={0.7}>
                 {isActive ? (
                   <LinearGradient
-                    colors={[Colors.dark.accent, Colors.dark.accentGreen]}
+                    colors={[currentProgram?.color || Colors.dark.accent, Colors.dark.accentGreen]}
                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                     style={styles.dayPillActive}
                   >
@@ -196,7 +382,7 @@ export default function ProgramScreen() {
         </ScrollView>
       </View>
 
-      {/* Tab Bar — Caliber style */}
+      {/* Tab Bar */}
       <View style={styles.tabBar}>
         {TABS.map((tab) => (
           <TouchableOpacity
@@ -232,91 +418,32 @@ export default function ProgramScreen() {
                 const muscleGroup = guessMuscleGroup(ex.exerciseName)
                 const muscleColor = MUSCLE_GROUP_COLORS[muscleGroup] || Colors.dark.accent
                 const hasDropSets = ex.sets.some((s) => s.isDropSet)
-                const inSS = isInSuperset(exIdx)
-                const firstSS = isFirstInSuperset(exIdx)
                 const setsText = `${ex.sets.length} sets × ${ex.sets[0]?.reps ?? 8} reps`
 
                 return (
-                  <View key={exIdx}>
-                    {firstSS && (
-                      <View style={styles.ssLabel}>
-                        <View style={[styles.ssLine, { backgroundColor: Colors.dark.accent }]} />
-                        <Text style={styles.ssText}>SUPERSET</Text>
-                        <View style={[styles.ssLine, { backgroundColor: Colors.dark.accent }]} />
-                      </View>
-                    )}
-                    <View style={[styles.exCard, { borderColor: Colors.dark.border }]}>
-                      <View style={styles.exRow}>
-                        {/* Large exercise icon */}
-                        <View style={[styles.exIconWrap, { backgroundColor: `${muscleColor}12` }]}>
-                          <ExerciseIcon exerciseName={ex.exerciseName} size={50} color={muscleColor} />
-                        </View>
-                        <View style={styles.exInfo}>
-                          <Text style={styles.exName} numberOfLines={1}>{ex.exerciseName}</Text>
-                          {/* Set/rep pill */}
-                          <View style={styles.exBadgeRow}>
-                            <View style={[styles.exBadge, { backgroundColor: `${muscleColor}18` }]}>
-                              <Text style={[styles.exBadgeText, { color: muscleColor }]}>{setsText}</Text>
-                            </View>
-                            {hasDropSets && (
-                              <View style={[styles.exBadge, { backgroundColor: 'rgba(255,107,107,0.12)' }]}>
-                                <Text style={[styles.exBadgeText, { color: Colors.dark.danger }]}>DROP</Text>
-                              </View>
-                            )}
-                            {ex.restSeconds && (
-                              <View style={[styles.exBadge, { backgroundColor: Colors.dark.surface }]}>
-                                <Text style={[styles.exBadgeText, { color: Colors.dark.textMuted }]}>{ex.restSeconds}s</Text>
-                              </View>
-                            )}
-                          </View>
-                        </View>
-                        {/* Three-dot menu */}
-                        <TouchableOpacity
-                          style={styles.menuBtn}
-                          onPress={() => setMenuExIdx(menuExIdx === exIdx ? null : exIdx)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.menuDots}>⋯</Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Context menu */}
-                      {menuExIdx === exIdx && (
-                        <View style={styles.contextMenu}>
-                          {exIdx > 0 && (
-                            <TouchableOpacity style={styles.contextItem} onPress={() => { moveExercise(activeDayIndex, exIdx, 'up'); setMenuExIdx(null) }}>
-                              <Text style={styles.contextText}>↑ Move Up</Text>
-                            </TouchableOpacity>
-                          )}
-                          {exIdx < exercises.length - 1 && (
-                            <TouchableOpacity style={styles.contextItem} onPress={() => { moveExercise(activeDayIndex, exIdx, 'down'); setMenuExIdx(null) }}>
-                              <Text style={styles.contextText}>↓ Move Down</Text>
-                            </TouchableOpacity>
-                          )}
-                          <TouchableOpacity style={styles.contextItem} onPress={() => {
-                            setMenuExIdx(null)
-                            router.push(`/(tabs)/program/pick-exercise?dayIndex=${activeDayIndex}&swapIndex=${exIdx}` as Href)
-                          }}>
-                            <Text style={styles.contextText}>⟷ Swap Exercise</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity style={[styles.contextItem, { borderBottomWidth: 0 }]} onPress={() => {
-                            const exs = [...exercises]
-                            exs.splice(exIdx, 1)
-                            updateDayExercises(activeDayIndex, exs)
-                            saveDayToBackend(activeDayIndex)
-                            setMenuExIdx(null)
-                          }}>
-                            <Text style={[styles.contextText, { color: Colors.dark.danger }]}>Remove</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                  </View>
+                  <DraggableExerciseCard
+                    key={exIdx}
+                    ex={ex}
+                    exIdx={exIdx}
+                    exerciseCount={exercises.length}
+                    activeDayIndex={activeDayIndex}
+                    muscleColor={muscleColor}
+                    setsText={setsText}
+                    hasDropSets={hasDropSets}
+                    isFirstSS={isFirstInSuperset(exIdx)}
+                    inSS={isInSuperset(exIdx)}
+                    menuExIdx={menuExIdx}
+                    setMenuExIdx={setMenuExIdx}
+                    moveExercise={moveExercise}
+                    updateDayExercises={updateDayExercises}
+                    saveDayToBackend={saveDayToBackend}
+                    exercises={exercises}
+                    router={router}
+                  />
                 )
               })
             )}
 
-            {/* Add exercise */}
             {exercises.length > 0 && (
               <TouchableOpacity
                 style={styles.addExBtn}
@@ -380,12 +507,12 @@ export default function ProgramScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Bottom Start Button — full width like Caliber */}
+      {/* Bottom Start Button */}
       {currentDay && currentDay.exercises.length > 0 && (
         <View style={styles.bottomBar}>
           <TouchableOpacity onPress={handleStartWorkout} activeOpacity={0.85} style={styles.startBtnWrap}>
             <LinearGradient
-              colors={[Colors.dark.accent, Colors.dark.accentGreen]}
+              colors={[currentProgram?.color || Colors.dark.accent, Colors.dark.accentGreen]}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={styles.startBtn}
             >
@@ -401,23 +528,63 @@ export default function ProgramScreen() {
   )
 }
 
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.background },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: Spacing.xl },
 
-  // Header card
+  // ─── List view ───────────────────────────────────────────────────────
+  listHeader: {
+    paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.lg,
+  },
+  listTitle: {
+    fontSize: FontSize.hero, fontWeight: FontWeight.extrabold, color: Colors.dark.text,
+  },
+  listContent: { paddingHorizontal: Spacing.xl },
+  programCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg,
+    borderWidth: 1, borderColor: Colors.dark.border,
+    padding: Spacing.xl, marginBottom: Spacing.md, gap: Spacing.lg,
+  },
+  programDot: { width: 12, height: 12, borderRadius: 6 },
+  programInfo: { flex: 1 },
+  programName: {
+    fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.dark.text,
+  },
+  programMeta: {
+    fontSize: FontSize.base, color: Colors.dark.textSecondary, marginTop: 2,
+  },
+
+  // FAB
+  fab: {
+    position: 'absolute', bottom: 90, right: 20,
+    width: 56, height: 56, borderRadius: 28,
+    shadowColor: '#e8ff47', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+  },
+  fabGradient: {
+    width: 56, height: 56, borderRadius: 28,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  fabIcon: { fontSize: 28, fontWeight: FontWeight.bold, color: Colors.dark.textOnAccent },
+
+  // ─── Detail view header ──────────────────────────────────────────────
   headerCard: {
-    paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.sm,
+    paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.sm,
   },
   headerTop: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
     marginBottom: Spacing.md,
   },
   headerLeft: { flex: 1 },
-  headerLabel: {
-    fontSize: FontSize.sm, fontWeight: FontWeight.semibold, color: Colors.dark.textMuted,
-    letterSpacing: 1, marginBottom: 2,
+  backToList: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  backToListText: {
+    fontSize: FontSize.base, fontWeight: FontWeight.semibold, color: Colors.dark.accent,
   },
   headerTitle: {
     fontSize: FontSize.hero, fontWeight: FontWeight.extrabold, color: Colors.dark.text,
@@ -445,7 +612,7 @@ const styles = StyleSheet.create({
   dayPillText: { fontSize: FontSize.base, fontWeight: FontWeight.semibold, color: Colors.dark.textSecondary },
   dayPillTextActive: { fontSize: FontSize.base, fontWeight: FontWeight.bold, color: Colors.dark.textOnAccent },
 
-  // Tab bar — Caliber style accent underline
+  // Tab bar
   tabBar: {
     flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.dark.border,
     paddingHorizontal: Spacing.xl,
@@ -458,8 +625,8 @@ const styles = StyleSheet.create({
   tabText: { fontSize: FontSize.xl, fontWeight: FontWeight.semibold, color: Colors.dark.textMuted },
   tabTextActive: { color: Colors.dark.text },
 
-  // Empty states
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.xxxxl },
+  // ─── Empty states ────────────────────────────────────────────────────
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.xxxxl, paddingTop: 100 },
   emptyIconWrap: {
     width: 80, height: 80, borderRadius: BorderRadius.full,
     backgroundColor: Colors.dark.accentSurface, alignItems: 'center', justifyContent: 'center',
@@ -487,12 +654,21 @@ const styles = StyleSheet.create({
   ssLine: { flex: 1, height: 1 },
   ssText: { fontSize: 9, fontWeight: FontWeight.bold, color: Colors.dark.accent, letterSpacing: 2 },
 
-  // Exercise card — Caliber style
+  // ─── Exercise card ───────────────────────────────────────────────────
   exCard: {
     backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg,
     borderWidth: 1, marginBottom: Spacing.md, padding: Spacing.xl,
   },
-  exRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg },
+  exCardDragging: {
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4, shadowRadius: 16, elevation: 12,
+    borderColor: Colors.dark.accentBorder,
+  },
+  exRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  dragHandle: {
+    width: 24, height: 40, alignItems: 'center', justifyContent: 'center',
+  },
+  dragIcon: { fontSize: 18, color: Colors.dark.textMuted },
   exIconWrap: {
     width: 64, height: 64, borderRadius: BorderRadius.lg,
     alignItems: 'center', justifyContent: 'center',
@@ -562,7 +738,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xl, color: Colors.dark.text,
   },
 
-  // Bottom bar — full-width button like Caliber
+  // Bottom bar
   bottomBar: {
     paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg,
     borderTopWidth: 1, borderTopColor: Colors.dark.border,

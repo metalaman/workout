@@ -47,7 +47,7 @@ function getTrainingCategory(name: string): 'push' | 'pull' | 'legs' | 'core' {
 
 export default function HomeScreen() {
   const { user, profile } = useAuthStore()
-  const { currentProgram, days, loadPrograms } = useProgramStore()
+  const { currentProgram, days, programs, loadPrograms } = useProgramStore()
   const { recentSessions, personalRecords, allSessions, loadRecent, loadAll, loadPRs } = useSessionStore()
   const { sessions: cardioSessions, loadSessions: loadCardio } = useCardioStore()
   const { startWorkout } = useWorkoutStore()
@@ -101,20 +101,26 @@ export default function HomeScreen() {
     }
   }, [personalRecords])
 
-  // Weekly calendar
+  // Weekly calendar — with session IDs and program colors
   const weekCalendar = useMemo(() => {
     const now = new Date()
     const dayOfWeek = now.getDay()
     const weekStart = new Date(now)
     weekStart.setDate(now.getDate() - dayOfWeek)
 
-    const workoutDates = new Set<string>()
+    // Build map: dateKey → { sessionId, color }
+    const workoutMap = new Map<string, { sessionId: string; color: string }>()
     const cardioDates = new Set<string>()
 
     for (const s of allSessions) {
       if (s.completedAt) {
         const d = new Date(s.completedAt)
-        workoutDates.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`)
+        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+        // Try to find matching program color
+        const matchedProg = programs.find((p) =>
+          days.some((day) => day.programId === p.$id && day.name === s.programDayName)
+        )
+        workoutMap.set(key, { sessionId: s.$id, color: matchedProg?.color || currentProgram?.color || Colors.dark.accent })
       }
     }
     for (const c of cardioSessions) {
@@ -122,17 +128,23 @@ export default function HomeScreen() {
       cardioDates.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`)
     }
 
-    const days = []
+    const calDays = []
     for (let i = 0; i < 7; i++) {
       const d = new Date(weekStart)
       d.setDate(weekStart.getDate() + i)
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
       const isToday = d.toDateString() === now.toDateString()
-      const hasStrength = workoutDates.has(key)
+      const workout = workoutMap.get(key)
+      const hasStrength = !!workout
       const hasCardio = cardioDates.has(key)
-      days.push({ date: d.getDate(), isToday, hasStrength, hasCardio, isPast: d < now && !isToday })
+      calDays.push({
+        date: d.getDate(), isToday, hasStrength, hasCardio,
+        isPast: d < now && !isToday,
+        sessionId: workout?.sessionId,
+        color: workout?.color || Colors.dark.accent,
+      })
     }
-    return days
+    return calDays
   }, [allSessions, cardioSessions])
 
   const completedThisWeek = weekCalendar.filter((d) => d.hasStrength || d.hasCardio).length
@@ -211,13 +223,17 @@ export default function HomeScreen() {
   }
 
   const handleCalendarDayPress = (day: typeof weekCalendar[0]) => {
-    if (day.hasStrength || day.hasCardio) {
-      router.push('/(tabs)/progress' as Href)
+    if (day.sessionId) {
+      router.push(`/workout/detail?sessionId=${day.sessionId}` as Href)
     }
   }
 
-  const handleRecentWorkoutPress = () => {
-    router.push('/(tabs)/progress' as Href)
+  const handleRecentWorkoutPress = (sessionId?: string) => {
+    if (sessionId) {
+      router.push(`/workout/detail?sessionId=${sessionId}` as Href)
+    } else {
+      router.push('/(tabs)/progress' as Href)
+    }
   }
 
   return (
@@ -272,14 +288,14 @@ export default function HomeScreen() {
                 style={styles.weekDay}
                 onPress={() => handleCalendarDayPress(d)}
                 activeOpacity={d.hasStrength || d.hasCardio ? 0.6 : 1}
-                disabled={!d.hasStrength && !d.hasCardio}
+                disabled={!d.sessionId}
               >
                 <Text style={styles.weekDayLabel}>{DAYS_LABELS[i]}</Text>
                 <View
                   style={[
                     styles.weekDayCircle,
-                    d.hasStrength && styles.weekDayCompleted,
-                    d.isToday && styles.weekDayToday,
+                    d.hasStrength && { backgroundColor: d.color },
+                    d.isToday && { borderWidth: 2, borderColor: currentProgram?.color || Colors.dark.accent, backgroundColor: 'transparent' },
                     !d.hasStrength && !d.isToday && styles.weekDayEmpty,
                   ]}
                 >
@@ -292,7 +308,7 @@ export default function HomeScreen() {
                   )}
                 </View>
                 <View style={styles.dotsRow}>
-                  {d.hasStrength && <View style={[styles.dot, { backgroundColor: Colors.dark.accent }]} />}
+                  {d.hasStrength && <View style={[styles.dot, { backgroundColor: d.color }]} />}
                   {d.hasCardio && <View style={[styles.dot, { backgroundColor: Colors.dark.info }]} />}
                 </View>
               </TouchableOpacity>
@@ -364,7 +380,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={i}
                 style={styles.recentCard}
-                onPress={handleRecentWorkoutPress}
+                onPress={() => handleRecentWorkoutPress(s.$id)}
                 activeOpacity={0.7}
               >
                 <View>
@@ -393,7 +409,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   key={i}
                   style={styles.recentCard}
-                  onPress={handleRecentWorkoutPress}
+                  onPress={() => handleRecentWorkoutPress()}
                   activeOpacity={0.7}
                 >
                   <View>

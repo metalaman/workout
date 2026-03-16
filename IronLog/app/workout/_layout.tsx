@@ -8,6 +8,7 @@ export default function WorkoutLayout() {
       <Stack.Screen name="freestyle" />
       <Stack.Screen name="cardio" />
       <Stack.Screen name="summary" />
+      <Stack.Screen name="detail" />
     </Stack>
   )
 }
