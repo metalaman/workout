@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import Svg, { Path, Circle, G, Text as SvgText } from 'react-native-svg'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
@@ -26,7 +26,7 @@ function getArcPath(cx: number, cy: number, r: number, startAngle: number, endAn
   return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`
 }
 
-export function StrengthScoreGauge({ score, delta = 0 }: StrengthGaugeProps) {
+export const StrengthScoreGauge = React.memo(function StrengthScoreGauge({ score, delta = 0 }: StrengthGaugeProps) {
   const level = getLevel(score)
   const cx = 100
   const cy = 95
@@ -101,7 +101,7 @@ export function StrengthScoreGauge({ score, delta = 0 }: StrengthGaugeProps) {
       </View>
     </View>
   )
-}
+})
 
 interface BalanceGaugeProps {
   push: number
@@ -116,7 +116,7 @@ function getBalanceColor(pct: number): string {
   return '#7fff00'
 }
 
-export function StrengthBalanceGauge({ push, pull, legs, core }: BalanceGaugeProps) {
+export const StrengthBalanceGauge = React.memo(function StrengthBalanceGauge({ push, pull, legs, core }: BalanceGaugeProps) {
   const groups = [
     { label: 'PUSH', value: push },
     { label: 'PULL', value: pull },
@@ -150,7 +150,7 @@ export function StrengthBalanceGauge({ push, pull, legs, core }: BalanceGaugePro
       </View>
     </View>
   )
-}
+})
 
 const gaugeStyles = StyleSheet.create({
   container: { alignItems: 'center', paddingTop: 8 },

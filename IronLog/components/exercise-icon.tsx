@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import Svg, { Path, Circle, Ellipse, G } from 'react-native-svg'
 
 interface ExerciseIconProps {
@@ -207,7 +207,7 @@ const MUSCLE_PATHS: Record<string, string> = {
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export function ExerciseIcon({
+export const ExerciseIcon = React.memo(function ExerciseIcon({
   exerciseName = '',
   exerciseId = '',
   muscleGroup = '',
@@ -216,29 +216,30 @@ export function ExerciseIcon({
 }: ExerciseIconProps) {
   const key = toKey(exerciseName || exerciseId)
 
-  // Look up which muscles to highlight
-  let primaryMuscles: string[] = []
-  let secondaryMuscles: string[] = []
+  // Memoize muscle lookup — only recompute when name/group changes
+  const { primaryMuscles, secondaryMuscles } = useMemo(() => {
+    let primary: string[] = []
+    let secondary: string[] = []
 
-  const mapping = EXERCISE_MUSCLES[key]
-  if (mapping) {
-    primaryMuscles = mapping.primary
-    secondaryMuscles = mapping.secondary
-  } else {
-    // Try partial matching
-    const partialMatch = Object.keys(EXERCISE_MUSCLES).find(k => key.includes(k) || k.includes(key))
-    if (partialMatch) {
-      primaryMuscles = EXERCISE_MUSCLES[partialMatch].primary
-      secondaryMuscles = EXERCISE_MUSCLES[partialMatch].secondary
-    } else if (muscleGroup) {
-      // Fallback to muscle group
-      const groupKey = muscleGroup.toLowerCase()
-      primaryMuscles = GROUP_TO_MUSCLES[groupKey] || []
+    const mapping = EXERCISE_MUSCLES[key]
+    if (mapping) {
+      primary = mapping.primary
+      secondary = mapping.secondary
+    } else {
+      const partialMatch = Object.keys(EXERCISE_MUSCLES).find(k => key.includes(k) || k.includes(key))
+      if (partialMatch) {
+        primary = EXERCISE_MUSCLES[partialMatch].primary
+        secondary = EXERCISE_MUSCLES[partialMatch].secondary
+      } else if (muscleGroup) {
+        const groupKey = muscleGroup.toLowerCase()
+        primary = GROUP_TO_MUSCLES[groupKey] || []
+      }
     }
-  }
+    return { primaryMuscles: primary, secondaryMuscles: secondary }
+  }, [key, muscleGroup])
 
-  const allPrimary = new Set(primaryMuscles)
-  const allSecondary = new Set(secondaryMuscles)
+  const allPrimary = useMemo(() => new Set(primaryMuscles), [primaryMuscles])
+  const allSecondary = useMemo(() => new Set(secondaryMuscles), [secondaryMuscles])
 
   return (
     <Svg width={size} height={size} viewBox="0 0 100 200">
@@ -334,7 +335,7 @@ export function ExerciseIcon({
       <Circle cx={66} cy={130} r={3} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={0.5} />
     </Svg>
   )
-}
+})
 
 // Comprehensive exercise list for pickers
 export const EXERCISES: string[] = [

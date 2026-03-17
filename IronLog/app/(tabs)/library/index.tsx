@@ -5,6 +5,7 @@ import { useRouter, Href } from 'expo-router'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
 import { SEED_EXERCISES } from '@/constants/exercises'
 import { useFilterStore } from '@/stores/filter-store'
+import { ExerciseIcon } from '@/components/exercise-icon'
 import type { MuscleGroup } from '@/types'
 
 const CATEGORIES: ('All' | MuscleGroup)[] = ['All', 'Chest', 'Back', 'Legs', 'Arms', 'Shoulders', 'Core']
@@ -78,11 +79,15 @@ export default function LibraryScreen() {
         data={filteredExercises}
         keyExtractor={(_, i) => i.toString()}
         contentContainerStyle={styles.list}
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
         renderItem={({ item, index }) => (
           <TouchableOpacity onPress={() => handleExercisePress(index)} activeOpacity={0.7}>
             <View style={styles.exerciseRow}>
               <View style={styles.exerciseIcon}>
-                <Text style={styles.exerciseEmoji}>{item.icon}</Text>
+                <ExerciseIcon exerciseName={item.name} muscleGroup={item.muscleGroup} size={32} />
               </View>
               <View style={styles.exerciseInfo}>
                 <Text style={styles.exerciseName}>{item.name}</Text>
