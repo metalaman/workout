@@ -342,43 +342,6 @@ const styles = StyleSheet.create({
   daySummaryText: {
     fontSize: FontSize.xl, fontWeight: FontWeight.semibold,
   },
-  weeksRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: Spacing.xxl,
-  },
-  weekBtn: {
-    width: 52, height: 52, borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.surface,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: Colors.dark.border,
-  },
-  weekBtnText: {
-    fontSize: FontSize.title, fontWeight: FontWeight.bold,
-    color: Colors.dark.text,
-  },
-  weeksInputWrap: { alignItems: 'center' },
-  weeksInput: {
-    fontSize: 48, fontWeight: FontWeight.black,
-    textAlign: 'center', minWidth: 80,
-  },
-  weeksLabel: {
-    fontSize: FontSize.base, color: Colors.dark.textSecondary,
-    marginTop: -4,
-  },
-  quickWeeks: {
-    flexDirection: 'row', justifyContent: 'center',
-    gap: 10, marginTop: Spacing.xxxxl,
-  },
-  quickWeekPill: {
-    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.surface,
-    borderWidth: 1, borderColor: Colors.dark.border,
-  },
-  quickWeekText: {
-    fontSize: FontSize.lg, fontWeight: FontWeight.semibold,
-    color: Colors.dark.textSecondary,
-  },
   bottomBar: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: Spacing.xxl,
