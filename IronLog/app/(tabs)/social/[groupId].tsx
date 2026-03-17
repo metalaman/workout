@@ -9,6 +9,7 @@ import Svg, { Path } from 'react-native-svg'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSocialStore } from '@/stores/social-store'
+import { client, DATABASE_ID, COLLECTION } from '@/lib/appwrite'
 import * as db from '@/lib/database'
 import type { GroupMessage, WorkoutShareData, Group } from '@/types/social'
 
@@ -80,11 +81,27 @@ export default function GroupChatScreen() {
     }
   }, [groupId])
 
-  // Auto-refresh messages every 10s
+  // Real-time subscription for new messages
   useEffect(() => {
     if (!groupId) return
-    const interval = setInterval(() => loadMessages(groupId), 10000)
-    return () => clearInterval(interval)
+
+    const channel = `databases.${DATABASE_ID}.collections.${COLLECTION.GROUP_MESSAGES}.documents`
+    const unsubscribe = client.subscribe(channel, (response) => {
+      const events = response.events || []
+      const payload = response.payload as any
+
+      // Only care about messages in this group
+      if (payload?.groupId !== groupId) return
+
+      if (events.some((e: string) => e.includes('.create'))) {
+        // New message — add to top of list (inverted FlatList)
+        loadMessages(groupId)
+      } else if (events.some((e: string) => e.includes('.delete'))) {
+        loadMessages(groupId)
+      }
+    })
+
+    return () => { unsubscribe() }
   }, [groupId])
 
   const handleSend = useCallback(async () => {
@@ -92,6 +109,22 @@ export default function GroupChatScreen() {
     const msg = text.trim()
     setText('')
     setSending(true)
+
+    // Optimistic: add message to UI instantly
+    const optimisticMsg: GroupMessage = {
+      $id: `optimistic-${Date.now()}`,
+      $createdAt: new Date().toISOString(),
+      groupId,
+      userId: user.$id,
+      userName: profile?.displayName ?? user.name ?? 'Athlete',
+      avatarColor: profile?.avatarColor ?? '#e8ff47',
+      text: msg,
+      type: 'text',
+    }
+    useSocialStore.setState((state) => ({
+      messages: [optimisticMsg, ...state.messages],
+    }))
+
     try {
       await sendMessage(
         groupId,
@@ -100,7 +133,12 @@ export default function GroupChatScreen() {
         profile?.displayName ?? user.name ?? 'Athlete',
         profile?.avatarColor ?? '#e8ff47'
       )
-    } catch {} finally {
+    } catch {
+      // Remove optimistic message on failure
+      useSocialStore.setState((state) => ({
+        messages: state.messages.filter((m) => m.$id !== optimisticMsg.$id),
+      }))
+    } finally {
       setSending(false)
     }
   }, [text, user, groupId, sending])
