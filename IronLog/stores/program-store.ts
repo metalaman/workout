@@ -96,6 +96,7 @@ interface ProgramState {
   toggleDropSet: (dayIndex: number, exerciseIndex: number) => void
   updateExerciseInDay: (dayIndex: number, exerciseIndex: number, updates: Partial<ProgramExercise>) => void
   saveBuilderDay: (dayIndex: number) => Promise<void>
+  updateDayName: (dayIndex: number, name: string) => void
   deleteProgram: (programId: string) => Promise<void>
   setBuilderActiveDayIndex: (index: number) => void
   setCurrentProgram: (program: Program) => void
@@ -459,12 +460,28 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     })
   },
 
+  updateDayName: (dayIndex, name) =>
+    set((state) => {
+      const builderDays = [...state.builderDays]
+      const days = [...state.days]
+      if (builderDays[dayIndex]) {
+        builderDays[dayIndex] = { ...builderDays[dayIndex], name }
+      }
+      // Also update in days array
+      const dayId = builderDays[dayIndex]?.$id
+      if (dayId) {
+        const idx = days.findIndex((d) => d.$id === dayId)
+        if (idx >= 0) days[idx] = { ...days[idx], name }
+      }
+      return { builderDays, days }
+    }),
+
   saveBuilderDay: async (dayIndex: number) => {
     const { builderDays } = get()
     const day = builderDays[dayIndex]
     if (!day || day.$id.startsWith('local-')) return
     try {
-      await db.updateProgramDay(day.$id, { exercises: day.exercises })
+      await db.updateProgramDay(day.$id, { name: day.name, exercises: day.exercises })
     } catch {
       // Silently fail
     }

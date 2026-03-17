@@ -33,11 +33,16 @@ export default function EditDayScreen() {
     builderDays, builderProgram, currentProgram,
     addDay, removeExerciseFromDay, reorderExercise,
     toggleSuperset, toggleDropSet, updateExerciseInDay,
-    saveBuilderDay, setBuilderActiveDayIndex,
+    saveBuilderDay, setBuilderActiveDayIndex, updateDayName,
   } = useProgramStore()
 
   const day = builderDays[dayIndex]
-  const [dayName, setDayName] = useState(day?.name ?? `Day ${dayIndex + 1}`)
+  const [dayName, setDayNameLocal] = useState(day?.name ?? `Day ${dayIndex + 1}`)
+
+  const setDayName = (name: string) => {
+    setDayNameLocal(name)
+    updateDayName(dayIndex, name)
+  }
   const [expandedEx, setExpandedEx] = useState<number | null>(null)
   const program = builderProgram || currentProgram
 
