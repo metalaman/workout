@@ -583,8 +583,9 @@ export async function sendGroupMessage(
   userName: string,
   avatarColor: string,
   text: string,
-  type: 'message' | 'workout_share' = 'message',
-  workoutData: string | null = null
+  type: 'message' | 'workout_share' | 'image' | 'gif' | 'sticker' = 'message',
+  workoutData: string | null = null,
+  mediaUrl: string | null = null
 ): Promise<GroupMessage> {
   const doc = await databases.createDocument(DATABASE_ID, COLLECTION.GROUP_MESSAGES, ID.unique(), {
     groupId,
@@ -594,6 +595,7 @@ export async function sendGroupMessage(
     text: text || '',
     type,
     workoutData: workoutData || '',
+    mediaUrl: mediaUrl || '',
   })
   return doc as unknown as GroupMessage
 }

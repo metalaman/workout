@@ -25,7 +25,7 @@ interface SocialState {
   loadMembers: (groupId: string) => Promise<void>
   createGroup: (name: string, description: string, userId: string, displayName: string, avatarColor: string) => Promise<Group>
   joinGroupByCode: (code: string, userId: string, displayName: string, avatarColor: string) => Promise<Group>
-  sendMessage: (groupId: string, text: string, userId: string, userName: string, avatarColor: string) => Promise<void>
+  sendMessage: (groupId: string, text: string, userId: string, userName: string, avatarColor: string, type?: string, mediaUrl?: string | null) => Promise<void>
   shareWorkout: (groupIds: string[], workoutData: string, text: string, userId: string, userName: string, avatarColor: string) => Promise<void>
   leaveGroup: (groupId: string, userId: string) => Promise<void>
   removeMember: (memberId: string, groupId: string) => Promise<void>
@@ -89,9 +89,9 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     return group
   },
 
-  sendMessage: async (groupId, text, userId, userName, avatarColor) => {
+  sendMessage: async (groupId, text, userId, userName, avatarColor, type = 'message', mediaUrl = null) => {
     try {
-      const msg = await db.sendGroupMessage(groupId, userId, userName, avatarColor, text, 'message', null)
+      const msg = await db.sendGroupMessage(groupId, userId, userName, avatarColor, text, type as any, null, mediaUrl)
       set((state) => ({ messages: [msg, ...state.messages] }))
     } catch {
       // silently fail

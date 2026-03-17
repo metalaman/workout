@@ -31,6 +31,9 @@ export const storage = new Storage(client)
 /** Storage bucket ID for progress photos */
 export const STORAGE_BUCKET = 'progress_photos'
 
+/** Storage bucket ID for chat media (images, etc.) */
+export const CHAT_MEDIA_BUCKET = '69b8d1e6000d4e0d8242'
+
 /**
  * Appwrite Database ID for the IronLog database.
  * All collections live under this database.

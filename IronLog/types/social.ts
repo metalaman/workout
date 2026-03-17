@@ -100,10 +100,12 @@ export interface GroupMessage {
   avatarColor: string
   /** Message text content */
   text: string
-  /** Message type — 'message' for text, 'workout_share' for shared workout */
-  type: 'message' | 'workout_share'
+  /** Message type */
+  type: 'message' | 'workout_share' | 'image' | 'gif' | 'sticker'
   /** JSON string of WorkoutShareData (only when type === 'workout_share') */
   workoutData: string | null
+  /** URL for media content — Appwrite file URL for images, Tenor URL for GIFs */
+  mediaUrl: string | null
   /** Creation timestamp */
   $createdAt: string
 }
