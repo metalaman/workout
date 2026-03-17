@@ -84,4 +84,4 @@ export const COLLECTION = {
  * `client.subscribe(`databases.${DATABASE_ID}.collections.${COLLECTION.GROUP_MESSAGES}.documents`, callback)`
  */
 export { client }
-export { ID, Query } from 'react-native-appwrite'
+export { ID, Query, Permission, Role } from 'react-native-appwrite'
