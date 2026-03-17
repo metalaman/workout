@@ -11,7 +11,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSocialStore } from '@/stores/social-store'
-import { client, DATABASE_ID, COLLECTION, storage, CHAT_MEDIA_BUCKET, ID, Permission, Role } from '@/lib/appwrite'
+import { client, DATABASE_ID, COLLECTION, storage, CHAT_MEDIA_BUCKET, ID, Permission, Role, getFileUrl } from '@/lib/appwrite'
 import * as db from '@/lib/database'
 import type { GroupMessage, WorkoutShareData, Group } from '@/types/social'
 
@@ -327,7 +327,7 @@ export default function GroupChatScreen() {
       ])
 
       // Get the file view URL
-      const fileUrl = storage.getFileView(CHAT_MEDIA_BUCKET, fileId).toString()
+      const fileUrl = getFileUrl(CHAT_MEDIA_BUCKET, fileId)
 
       // Send message with media URL
       await sendMessage(groupId, '', userId, userName, avatarColor, 'image', fileUrl)

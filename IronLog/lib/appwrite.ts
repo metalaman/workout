@@ -85,3 +85,10 @@ export const COLLECTION = {
  */
 export { client }
 export { ID, Query, Permission, Role } from 'react-native-appwrite'
+
+/** Build a public file view URL for a given bucket + file ID */
+export function getFileUrl(bucketId: string, fileId: string): string {
+  const endpoint = process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT!
+  const project = process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID!
+  return `${endpoint}/storage/buckets/${bucketId}/files/${fileId}/view?project=${project}`
+}
