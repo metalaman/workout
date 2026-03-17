@@ -1,8 +1,23 @@
+/**
+ * Auth Store
+ *
+ * Manages authentication state and user profile.
+ * Provides login, register, logout, and a dev-mode skipAuth.
+ *
+ * @module stores/auth-store
+ */
 import { create } from 'zustand'
 import type { Models } from 'react-native-appwrite'
 import type { UserProfile } from '@/types'
 import * as authService from '@/lib/auth'
 
+/**
+ * Auth state shape.
+ * - `user` — Appwrite User object (null when logged out)
+ * - `profile` — UserProfile from user_profiles collection
+ * - `isLoading` — True during initialization
+ * - `isAuthenticated` — Controls AuthGate navigation
+ */
 interface AuthState {
   user: Models.User<Models.Preferences> | null
   profile: UserProfile | null

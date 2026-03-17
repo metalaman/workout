@@ -1,3 +1,11 @@
+/**
+ * Social Store
+ *
+ * Manages social groups, group chat messages, members, and invitations.
+ * Group chat uses Appwrite Realtime for live updates (subscription is in the screen, not here).
+ *
+ * @module stores/social-store
+ */
 import { create } from 'zustand'
 import type { Group, GroupMember, GroupMessage, GroupInvitation } from '@/types/social'
 import * as db from '@/lib/database'

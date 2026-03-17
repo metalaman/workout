@@ -1,68 +1,87 @@
 # Contributing to IronLog
 
-Guide for developers and coding agents working on this codebase.
+Guide for developers working on this codebase. Read this before making changes.
 
-## Code Style
+## Code Conventions
 
-- **TypeScript** with strict mode (`tsconfig.json` has `"strict": true`)
-- **Functional components** only — no class components
-- **Zustand** for state — no Redux, no Context API for global state
-- **StyleSheet.create** for styles — NativeWind/Tailwind is installed but most styles use StyleSheet
-- **Inline styles** for one-off dynamic values (e.g., `{ backgroundColor: color }`)
-- **Single quotes**, no semicolons (Expo default ESLint config)
-- **Barrel exports** from `types/index.ts` — import types from `@/types` not `@/types/exercise`
-- **Path aliases** via `@/` prefix — maps to project root (e.g., `@/stores/auth-store`, `@/lib/database`)
+### General
 
-### Naming Conventions
+- **TypeScript everywhere** — no `.js` files, strict types preferred
+- **Functional components** — no class components
+- **Zustand for state** — no React Context, no Redux
+- **Appwrite as backend** — no REST APIs, no Firebase
+- **File-based routing** — Expo Router, not React Navigation directly
+- **Imports use `@/`** — path alias for project root (e.g., `@/stores/auth-store`)
+- **`as const`** — theme tokens, collection IDs use `as const` for literal types
 
-| What | Convention | Example |
-|------|-----------|---------|
-| Files | kebab-case | `auth-store.ts`, `exercise-icon.tsx` |
-| Components | PascalCase | `ExerciseIcon`, `StrengthScoreGauge` |
-| Stores | `use{Name}Store` | `useAuthStore`, `useProgramStore` |
-| Types | PascalCase | `WorkoutSession`, `ProgramExercise` |
-| Constants | UPPER_SNAKE or PascalCase | `COLLECTION`, `Colors`, `FontSize` |
-| Store actions | camelCase verbs | `loadPrograms`, `createNewProgram` |
+### Naming
+
+- Files: `kebab-case.ts` / `kebab-case.tsx`
+- Components: `PascalCase` (function name), `kebab-case` (file name)
+- Stores: `use<Name>Store` (e.g., `useWorkoutStore`)
+- Types: `PascalCase` interfaces (e.g., `WorkoutSession`)
+- Database functions: `verbNoun` (e.g., `createProgram`, `listProgramDays`)
+- Constants: `SCREAMING_SNAKE_CASE` (e.g., `DATABASE_ID`, `SEED_EXERCISES`)
+
+### Styling
+
+- **StyleSheet.create()** for all styles — no inline style objects
+- **Theme tokens** — always use `Colors.dark.*`, `Spacing.*`, `FontSize.*`, etc. from `constants/theme.ts`
+- **No Tailwind/NativeWind in screens** — despite being installed, screens use StyleSheet exclusively
+- **Dark mode only** — `Colors.light` and `Colors.dark` are identical
+
+### State Management
+
+- One Zustand store per domain
+- Stores don't import other stores — screens coordinate
+- Async actions call `database.ts` functions, never Appwrite directly
+- Optimistic updates: update local state immediately, then sync to Appwrite
+- Fallback to `local-*` IDs when Appwrite fails
 
 ---
 
 ## How to Add a New Screen
 
-1. **Create the file** under `app/` in the correct directory:
+1. **Create the file** in the appropriate `app/` directory:
    - Tab screen: `app/(tabs)/my-screen.tsx`
-   - Modal: `app/my-modal.tsx`
-   - Nested in existing group: `app/(tabs)/library/new-screen.tsx`
+   - Stack screen within a tab: `app/(tabs)/my-section/my-screen.tsx`
+   - Modal/standalone: `app/my-screen.tsx`
 
-2. **Register in layout** if it's a new Stack screen:
-   ```tsx
-   // In the parent _layout.tsx
-   <Stack.Screen name="new-screen" options={{ animation: 'slide_from_right' }} />
+2. **Add a layout** if creating a new group:
+   ```typescript
+   // app/(tabs)/my-section/_layout.tsx
+   import { Stack } from 'expo-router'
+   import { Colors } from '@/constants/theme'
+
+   export default function MyLayout() {
+     return (
+       <Stack screenOptions={{
+         headerShown: false,
+         contentStyle: { backgroundColor: Colors.dark.background }
+       }}>
+         <Stack.Screen name="index" />
+       </Stack>
+     )
+   }
    ```
 
-3. **If it's a new tab**, add to `app/(tabs)/_layout.tsx`:
-   ```tsx
+3. **Register in parent layout** if it's a new tab:
+   ```typescript
+   // app/(tabs)/_layout.tsx
    <Tabs.Screen
-     name="my-tab"
+     name="my-section"
      options={{
+       lazy: true,
        tabBarIcon: ({ focused }) => <TabIcon icon={<MyIcon />} label="My Tab" focused={focused} />,
      }}
    />
    ```
 
-4. **Navigate to it** from other screens:
-   ```tsx
-   import { useRouter, Href } from 'expo-router'
-   const router = useRouter()
-   router.push('/my-screen' as Href)          // Push onto stack
-   router.replace('/my-screen' as Href)       // Replace current screen
-   router.navigate('/(tabs)/my-tab' as Href)  // Switch tab
-   ```
-
-5. **Standard screen template:**
-   ```tsx
+4. **Screen template:**
+   ```typescript
    import { View, Text, StyleSheet } from 'react-native'
    import { SafeAreaView } from 'react-native-safe-area-context'
-   import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme'
+   import { Colors, FontSize, FontWeight, Spacing } from '@/constants/theme'
 
    export default function MyScreen() {
      return (
@@ -73,8 +92,16 @@ Guide for developers and coding agents working on this codebase.
    }
 
    const styles = StyleSheet.create({
-     container: { flex: 1, backgroundColor: Colors.dark.background },
-     title: { color: Colors.dark.text, fontSize: FontSize.title, fontWeight: FontWeight.bold },
+     container: {
+       flex: 1,
+       backgroundColor: Colors.dark.background,
+       paddingHorizontal: Spacing.xxl,
+     },
+     title: {
+       color: Colors.dark.text,
+       fontSize: FontSize.title,
+       fontWeight: FontWeight.bold,
+     },
    })
    ```
 
@@ -82,32 +109,30 @@ Guide for developers and coding agents working on this codebase.
 
 ## How to Add a New Appwrite Collection
 
-1. **Create the collection** via Appwrite console or API:
-   ```bash
-   curl -X POST "https://nyc.cloud.appwrite.io/v1/databases/698dd75900395a2e605e/collections" \
-     -H "Content-Type: application/json" \
-     -H "X-Appwrite-Project: 698d5a490007a7ec0e2e" \
-     -H "X-Appwrite-Key: YOUR_API_KEY" \
-     -d '{"collectionId":"my_collection","name":"my_collection","permissions":["read(\"any\")","create(\"users\")","update(\"users\")","delete(\"users\")"]}'
-   ```
+1. **Create the collection** in your Appwrite console under database `698dd75900395a2e605e`
 
-2. **Add attributes** (string, integer, float, boolean, etc.)
-
-3. **Add the collection ID** to `lib/appwrite.ts`:
+2. **Add the collection ID** to `lib/appwrite.ts`:
    ```typescript
    export const COLLECTION = {
-     // ... existing
+     ...existing,
      MY_COLLECTION: 'my_collection',
    } as const
    ```
 
-4. **Add the TypeScript interface** in `types/`:
+3. **Define the TypeScript interface** in `types/`:
    ```typescript
+   // types/my-type.ts
    export interface MyDocument {
      $id: string
      userId: string
-     // ... your fields
+     name: string
+     // ... fields matching Appwrite schema
    }
+   ```
+
+4. **Re-export from `types/index.ts`:**
+   ```typescript
+   export * from './my-type'
    ```
 
 5. **Add CRUD functions** to `lib/database.ts`:
@@ -121,8 +146,9 @@ Guide for developers and coding agents working on this codebase.
    }
    ```
 
-6. **Create a Zustand store** in `stores/my-store.ts`:
+6. **Create a Zustand store** if needed:
    ```typescript
+   // stores/my-store.ts
    import { create } from 'zustand'
    import type { MyDocument } from '@/types'
    import * as db from '@/lib/database'
@@ -131,20 +157,14 @@ Guide for developers and coding agents working on this codebase.
      items: MyDocument[]
      isLoading: boolean
      load: (userId: string) => Promise<void>
+     add: (data: Omit<MyDocument, '$id'>) => Promise<void>
    }
 
    export const useMyStore = create<MyState>((set) => ({
      items: [],
      isLoading: false,
-     load: async (userId) => {
-       set({ isLoading: true })
-       try {
-         const items = await db.listMyDocuments(userId)
-         set({ items, isLoading: false })
-       } catch {
-         set({ isLoading: false })
-       }
-     },
+     load: async (userId) => { /* ... */ },
+     add: async (data) => { /* ... */ },
    }))
    ```
 
@@ -152,59 +172,85 @@ Guide for developers and coding agents working on this codebase.
 
 ## How to Add Exercises to the Library
 
-1. Open `constants/exercises.ts`
-2. Add to the `SEED_EXERCISES` array:
+### Static Exercise List
+
+The `ExerciseIcon` component in `components/exercise-icon.tsx` has two important maps:
+
+1. **`EXERCISE_MUSCLES`** — Maps exercise name (lowercase, no special chars) to primary/secondary muscles:
    ```typescript
-   {
-     name: 'My Exercise',
-     muscleGroup: 'Chest',     // Must be: Chest | Back | Legs | Shoulders | Arms | Core
-     secondaryMuscles: ['Triceps'],
-     equipment: 'Barbell',     // Must be: Barbell | Dumbbell | Cable | Machine | Bodyweight | Bands
-     difficulty: 'Intermediate', // Must be: Beginner | Intermediate | Advanced
-     icon: '🏋️',
-     instructions: 'Step by step instructions here.',
-   }
+   benchpress: { primary: ['chest'], secondary: ['triceps', 'shoulders'] },
    ```
 
-3. **Add the muscle mapping** in `components/exercise-icon.tsx`:
+2. **`EXERCISES`** — String array of all exercise display names for pickers:
    ```typescript
-   // In EXERCISE_MUSCLES map (normalize the name — lowercase, no special chars)
-   myexercise: { primary: ['chest'], secondary: ['triceps', 'shoulders'] },
+   'Bench Press', 'Incline Bench Press', ...
    ```
-   Valid muscle keys: `chest`, `back`, `lats`, `shoulders`, `traps`, `biceps`, `triceps`, `forearms`, `core`, `quads`, `hamstrings`, `glutes`, `calves`, `hipflexors`
 
-4. **Add to the default program** (optional) in `stores/program-store.ts` under `DEFAULT_DAYS`.
+To add a new exercise:
+
+1. Add to `EXERCISE_MUSCLES` with the key being the name with no spaces/special chars:
+   ```typescript
+   pendlayrow: { primary: ['back', 'lats'], secondary: ['biceps', 'forearms', 'traps'] },
+   ```
+
+2. Add the display name to the `EXERCISES` array.
+
+3. Optionally add to `SEED_EXERCISES` in `constants/exercises.ts` if you want full metadata (difficulty, equipment, instructions).
+
+### Muscle SVG Paths
+
+If you need new muscle regions, add paths to `MUSCLE_PATHS` in `exercise-icon.tsx`. Paths use viewBox `0 0 100 200` (front-facing body diagram).
 
 ---
 
 ## How to Modify the Theme
 
-Edit `constants/theme.ts`. All screens import from this file.
+Edit `constants/theme.ts`. All screens import tokens from here.
 
 **To change the accent color:**
 ```typescript
-// In Colors.dark (and Colors.light to match):
-accent: '#your_color',
-accentDark: '#darker_variant',
-accentSurface: 'rgba(r,g,b,0.06)',
-accentSurfaceActive: 'rgba(r,g,b,0.12)',
-accentBorder: 'rgba(r,g,b,0.15)',
-accentBorderStrong: 'rgba(r,g,b,0.4)',
-textOnAccent: '#dark_text_for_contrast',  // Usually dark for light accents
+// constants/theme.ts
+accent: '#e8ff47',       // Change this
+accentDark: '#a8e000',   // And this (darker variant)
 ```
 
-**To adjust spacing/sizing:** Change values in `Spacing`, `FontSize`, `BorderRadius`, `FontWeight`.
+**To add a new color:**
+```typescript
+export const Colors = {
+  dark: {
+    ...existing,
+    myNewColor: '#ff00ff',
+  },
+  // Mirror in light: (they're identical)
+  light: {
+    ...existing,
+    myNewColor: '#ff00ff',
+  },
+}
+```
+
+**To add a new spacing value:**
+```typescript
+export const Spacing = {
+  ...existing,
+  custom: 48,
+} as const
+```
 
 ---
 
 ## Git Workflow
 
-- **Branch:** All work happens on `main` (no feature branches currently)
-- **Commit messages:** `feat:`, `fix:`, or plain description
-- **Push command:**
-  ```bash
-  GIT_SSH_COMMAND="ssh -i ~/workspace/id_ed25519_github -o StrictHostKeyChecking=no" git push
-  ```
+```bash
+# Push using the SSH key
+GIT_SSH_COMMAND="ssh -i ~/workspace/id_ed25519_github -o StrictHostKeyChecking=no" git push
+```
+
+Commit messages follow conventional format:
+- `feat: description` — new features
+- `fix: description` — bug fixes
+- `refactor: description` — code restructuring
+- `docs: description` — documentation
 
 ---
 
@@ -212,83 +258,87 @@ textOnAccent: '#dark_text_for_contrast',  // Usually dark for light accents
 
 ### 1. Appwrite Rejects Unknown Fields
 
-If you add a field to a TypeScript type but don't add the corresponding attribute to the Appwrite collection, the API will reject the entire document creation/update with an error like `"Unknown attribute: myField"`.
+If you pass a field that doesn't exist in the Appwrite collection schema, you'll get a 400 error. Always check that your `createDocument()` data matches the schema exactly. Strip extra fields before sending.
 
-**Fix:** Always add the attribute to Appwrite first, then use it in code.
+### 2. Exercises Must Be JSON-Serialized
 
-### 2. JSON Serialization for `program_days.exercises`
-
-The `exercises` field in `program_days` is a **string** attribute in Appwrite, not an array. The `database.ts` functions handle serialization:
-
+The `program_days` collection stores exercises as a **string**, not an array. `database.ts` handles this automatically, but if you bypass it, you must:
 ```typescript
-// Writing: JSON.stringify(exercises)
-// Reading: JSON.parse(exercises)
+// Writing:
+exercises: JSON.stringify(exercisesArray)
+// Reading:
+exercises = JSON.parse(exercisesString)
 ```
 
-If you bypass `database.ts` and write directly via Appwrite SDK, you must serialize manually.
+### 3. Exercise Data Lost After `endWorkout()`
 
-### 3. Exercises Data Lost After `endWorkout()`
-
-The `workout-store.ts` `endWorkout()` function resets **all** state including `exercises`. If you need exercises data for the summary screen, capture it BEFORE calling `endWorkout()`:
-
+`useWorkoutStore.endWorkout()` resets ALL state including `exercises`. If you need exercise data after ending (e.g., for the summary screen), capture it BEFORE calling `endWorkout()`:
 ```typescript
-const completedExercises = [...exercises]  // BEFORE
-const { totalVolume, duration } = endWorkout()  // This clears everything
-setLastCompleted(session, completedExercises)  // Pass to session store
+const completedExercises = [...exercises]  // SAVE FIRST
+const stats = endWorkout()                 // exercises is now []
+setLastCompleted(session, completedExercises)
 ```
 
-### 4. Dev Mode Checks
+### 4. Dev Mode Skips Appwrite
 
-Dev/local users bypass Appwrite. Check for this pattern:
-```typescript
-const isLocal = userId === 'dev' || userId.startsWith('local') || program.$id.startsWith('local')
-```
+When `userId === 'dev'` or IDs start with `local-`, the program store skips Appwrite calls. This is intentional for development but means dev changes won't persist across app restarts.
 
-If you add new Appwrite calls, add this guard or they'll fail for dev users.
+### 5. Denormalized Fields Get Stale
 
-### 5. `as unknown as Type` Pattern
+Fields like `GroupMember.displayName` are copied from the user profile at join time. If a user changes their name, existing group memberships keep the old name. No sync mechanism exists yet.
 
-All Appwrite document responses are cast through `as unknown as Type` because Appwrite SDK returns `Models.Document` which doesn't match our types. This is expected and safe:
+### 6. `listUserGroups()` is N+1
 
-```typescript
-const doc = await databases.getDocument(...)
-return doc as unknown as MyType
-```
+It first queries all `group_members` for the user, then fetches each group individually. This is O(N) Appwrite calls. For users in many groups, this could be slow.
 
-### 6. Builder vs Active State in Program Store
+### 7. Member Count Can Drift
 
-`useProgramStore` has **two parallel arrays**: `days` (active view) and `builderDays` (edit mode). When modifying exercises in the builder, BOTH must be updated:
+`groups.memberCount` is updated manually on join/leave. If an operation fails mid-way (e.g., member doc deleted but count not decremented), the count drifts. No reconciliation exists.
 
-```typescript
-set((state) => {
-  const builderDays = [...state.builderDays]
-  // ... modify builderDays[dayIndex] ...
-  const days = [...state.days]
-  const mainIdx = days.findIndex((d) => d.$id === builderDays[dayIndex]?.$id)
-  if (mainIdx >= 0) {
-    days[mainIdx] = { ...builderDays[dayIndex] }  // Sync to main array
-  }
-  return { builderDays, days }
-})
-```
+### 8. TypeScript Casting
 
-### 7. Appwrite Realtime Requires Auth
+All Appwrite document returns use `as unknown as T`. This means TypeScript won't catch mismatches between your interface and the actual Appwrite schema. Test thoroughly after schema changes.
 
-Appwrite Realtime subscriptions (`client.subscribe(...)`) only work for authenticated users. They will silently fail for dev/skipAuth users. This is fine — dev users just won't get real-time updates.
+### 9. No Error Toasts
 
-### 8. Tab Bar Label Overflow
+Most store actions catch errors silently (`catch { }`). The user gets no feedback when Appwrite calls fail. Consider adding error state or toast notifications.
 
-Tab labels must be short (max ~6 chars) and use `numberOfLines={1}` to prevent wrapping. The `_layout.tsx` tab bar uses custom `TabIcon` components with 9px font size.
+### 10. Tab Lazy Loading
 
-### 9. Safe Directory for Git
+All tabs use `lazy: true`. This means the first navigation to a tab triggers its initial data load. If the user has slow internet, they'll see a blank/loading state briefly.
 
-If you get `fatal: detected dubious ownership in repository`, run:
-```bash
-git config --global --add safe.directory /home/hatch/workspace/workout
-```
+### 11. Realtime Subscription Scope
 
-### 10. SSH Key for GitHub
+The Appwrite Realtime subscription in group chat listens to ALL documents in the `group_messages` collection. It filters by `groupId` client-side. In a production app with many groups, this could be noisy. Appwrite doesn't support per-document subscriptions.
 
-```bash
-GIT_SSH_COMMAND="ssh -i ~/workspace/id_ed25519_github -o StrictHostKeyChecking=no" git clone/push/pull
-```
+### 12. MMKV Installed but Not Used
+
+`react-native-mmkv` is in dependencies but not imported anywhere. It was likely intended for local caching or persistence but hasn't been implemented.
+
+### 13. NativeWind Installed but Not Used
+
+`nativewind` and `tailwindcss` are in dependencies, but all screens use `StyleSheet.create()`. No `className` props are used.
+
+---
+
+## Directory Conventions
+
+| Directory | Purpose | Who manages it |
+|-----------|---------|---------------|
+| `app/` | Screens (file-based routes) | Expo Router |
+| `stores/` | Zustand stores | One per domain |
+| `lib/` | Core utilities + Appwrite ops | Shared code |
+| `types/` | TypeScript interfaces | One per domain |
+| `constants/` | Theme tokens + seed data | Rarely changes |
+| `components/` | Reusable UI components | Shared |
+| `components/ui/` | Generic primitives | Very generic |
+| `assets/` | Images, fonts, splash | Static |
+
+---
+
+## Testing
+
+No test framework is configured. Consider adding:
+- **Jest** for unit tests (utils, store logic)
+- **React Native Testing Library** for component tests
+- **Detox** for E2E tests

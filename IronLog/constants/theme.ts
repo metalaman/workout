@@ -1,5 +1,29 @@
+/**
+ * Design System Tokens
+ *
+ * All visual constants for the IronLog app. Dark-only theme — both `Colors.dark`
+ * and `Colors.light` are identical (no light mode).
+ *
+ * Import tokens instead of hardcoding values:
+ * ```
+ * import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme'
+ * ```
+ *
+ * @module constants/theme
+ */
 import { Platform } from 'react-native'
 
+/**
+ * Color palette. The app uses dark mode exclusively.
+ * `Colors.light` mirrors `Colors.dark` — no actual light theme.
+ *
+ * Key colors:
+ * - `accent` (#e8ff47): Primary accent — neon yellow-green
+ * - `background` (#0f0f0f): Screen backgrounds — near-black
+ * - `surface` (rgba white 4%): Card/container backgrounds
+ * - `danger` (#ff6b6b): Destructive actions, errors
+ * - `info` (#6bc5ff): Informational elements
+ */
 export const Colors = {
   dark: {
     background: '#0f0f0f',
@@ -57,6 +81,11 @@ export const Colors = {
   },
 } as const
 
+/**
+ * Spacing scale (in pixels).
+ * Used for padding, margins, and gaps throughout the app.
+ * Compact scale — most UI uses lg (12) or xl (16).
+ */
 export const Spacing = {
   xs: 4,
   sm: 6,
@@ -68,6 +97,12 @@ export const Spacing = {
   xxxxl: 32,
 } as const
 
+/**
+ * Border radius scale (in pixels).
+ * - `sm`-`xxl`: Incremental rounding for cards, buttons, inputs
+ * - `pill` (20): Fully rounded pill shapes (chips, tags)
+ * - `full` (9999): Perfect circle (avatars)
+ */
 export const BorderRadius = {
   sm: 8,
   md: 10,
@@ -78,6 +113,14 @@ export const BorderRadius = {
   full: 9999,
 } as const
 
+/**
+ * Font size scale (in pixels).
+ * Intentionally compact — body text is 12-13px, titles are 20px.
+ * - `xs` (8): Very small labels
+ * - `base` (12): Default body text
+ * - `title` (20): Screen titles
+ * - `hero` (26): Large numbers (strength score, stats)
+ */
 export const FontSize = {
   xs: 8,
   sm: 10,
@@ -90,6 +133,10 @@ export const FontSize = {
   hero: 26,
 } as const
 
+/**
+ * Font weight values as string literals (React Native expects strings).
+ * Used with `fontWeight` style property.
+ */
 export const FontWeight = {
   regular: '400' as const,
   medium: '500' as const,
@@ -99,6 +146,10 @@ export const FontWeight = {
   black: '900' as const,
 }
 
+/**
+ * Platform-specific font family stacks.
+ * Uses system fonts — no custom font files.
+ */
 export const Fonts = Platform.select({
   ios: {
     sans: 'system-ui',

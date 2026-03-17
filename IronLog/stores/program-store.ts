@@ -1,3 +1,17 @@
+/**
+ * Program Store
+ *
+ * Manages workout programs, their days, and the program builder.
+ * Programs are user-created training plans with named days containing exercises.
+ *
+ * Has two modes:
+ * 1. **Viewing** — `currentProgram` + `days` for the active program
+ * 2. **Building** — `builderProgram` + `builderDays` during program creation
+ *
+ * Supports local fallback when Appwrite is unreachable (IDs prefixed with `local-`).
+ *
+ * @module stores/program-store
+ */
 import { create } from 'zustand'
 import type { Program, ProgramDay, ProgramExercise } from '@/types'
 import * as db from '@/lib/database'

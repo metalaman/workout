@@ -1,6 +1,26 @@
+/**
+ * Workout Store
+ *
+ * Manages the active (in-progress) workout state. In-memory only — not persisted.
+ * State is populated when a workout starts and reset when it ends.
+ *
+ * ⚠️ endWorkout() resets ALL state including exercises.
+ * Capture exercise data BEFORE calling endWorkout() if you need it.
+ *
+ * @module stores/workout-store
+ */
 import { create } from 'zustand'
 import type { ActiveWorkoutExercise } from '@/types'
 
+/**
+ * Workout state shape.
+ * - `isActive` — Is a workout currently in progress?
+ * - `isPaused` — Is the timer paused?
+ * - `exercises` — Array of exercises being tracked with their sets
+ * - `currentExerciseIndex` — Which exercise tab is selected
+ * - `startTime` — Date.now() when workout started (for elapsed calc)
+ * - `pausedAtSeconds` — Elapsed seconds when paused (resumes from here)
+ */
 interface WorkoutState {
   isActive: boolean
   isPaused: boolean

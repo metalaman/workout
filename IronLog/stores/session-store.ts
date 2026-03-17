@@ -1,3 +1,12 @@
+/**
+ * Session Store
+ *
+ * Manages workout session history, personal records, and post-workout state.
+ * The `lastCompletedSession` and `lastCompletedExercises` fields carry data
+ * from the active workout to the summary screen.
+ *
+ * @module stores/session-store
+ */
 import { create } from 'zustand'
 import type { WorkoutSession, PersonalRecord, ActiveWorkoutExercise } from '@/types'
 import * as db from '@/lib/database'

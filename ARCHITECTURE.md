@@ -1,230 +1,237 @@
-# Architecture
+# IronLog Architecture
 
-Deep technical reference for the IronLog codebase. Read this before making changes.
+Deep technical reference for the IronLog codebase. Read this to understand how everything connects.
 
-## 1. App Structure — Expo Router
+## Table of Contents
 
-IronLog uses **file-based routing** via Expo Router v4. Every `.tsx` file under `app/` becomes a route.
-
-### Route Groups
-
-```
-app/
-├── _layout.tsx           → RootLayout (AuthGate wrapper + Stack navigator)
-├── profile.tsx           → /profile (modal)
-│
-├── (auth)/               → Auth group (login/register)
-│   ├── _layout.tsx       → Stack navigator
-│   ├── login.tsx         → /login
-│   └── register.tsx      → /register
-│
-├── (tabs)/               → Main tab navigator (5 tabs)
-│   ├── _layout.tsx       → Bottom tab bar
-│   ├── index.tsx         → Home tab (/)
-│   ├── progress.tsx      → Stats tab
-│   │
-│   ├── library/          → Exercise library (nested stack)
-│   │   ├── index.tsx     → Library list
-│   │   ├── [id].tsx      → Exercise detail (dynamic route)
-│   │   └── filters.tsx   → Filter modal (presentation: 'modal')
-│   │
-│   ├── program/          → Program management (nested stack)
-│   │   ├── index.tsx     → Program list + day view
-│   │   ├── create.tsx    → Create wizard
-│   │   ├── edit-day.tsx  → Day editor
-│   │   └── pick-exercise.tsx → Exercise picker (modal)
-│   │
-│   └── social/           → Groups (nested stack)
-│       ├── index.tsx     → Groups list + invitations
-│       ├── [groupId].tsx → Group chat (dynamic route)
-│       ├── create.tsx    → Create group (slide_from_bottom)
-│       └── members.tsx   → Members list + invite
-│
-├── workout/              → Workout flow (slides up from bottom)
-│   ├── _layout.tsx       → Stack navigator
-│   ├── active.tsx        → Active workout tracker
-│   ├── freestyle.tsx     → Freestyle exercise picker → active
-│   ├── cardio.tsx        → Cardio logger
-│   ├── summary.tsx       → Post-workout summary
-│   └── detail.tsx        → Past workout detail
-│
-└── stats/                → Stats screens (slides from right)
-    ├── _layout.tsx       → Stack navigator
-    ├── body.tsx          → Body measurements
-    └── photos.tsx        → Progress photos
-```
-
-### Navigation Flow
-
-```
-Login ──→ Home Tab
-              │
-              ├── [tap date] ──→ inline day card (no navigation)
-              ├── [tap "+"] ──→ Activity Picker Bottom Sheet
-              │     ├── Strength ──→ Program/Day Picker ──→ /workout/active
-              │     ├── Freestyle ──→ /workout/freestyle ──→ /workout/active
-              │     ├── Cardio ──→ /workout/cardio
-              │     ├── Body Stat ──→ /stats/body
-              │     └── Progress Photo ──→ /stats/photos
-              │
-              └── /workout/active ──→ /workout/summary ──→ Home
-
-Library Tab ──→ [tap exercise] ──→ /library/[id]
-             └── [tap filter] ──→ /library/filters (modal)
-
-Plan Tab ──→ [tap program] ──→ Day view
-          ├── [tap "+"] ──→ /program/create ──→ /program/edit-day
-          └── [tap "Add Exercise"] ──→ /program/pick-exercise (modal)
-
-Groups Tab ──→ [tap group] ──→ /social/[groupId] (chat)
-            ├── [tap "Create"] ──→ /social/create
-            └── [tap members icon] ──→ /social/members
-```
-
-### Auth Gate
-
-The root `_layout.tsx` wraps everything in an `AuthGate` component:
-- If `isAuthenticated === false` and not in `(auth)` group → redirect to login
-- If `isAuthenticated === true` and in `(auth)` group → redirect to tabs
-- While loading → show ActivityIndicator
+1. [Navigation & Routing](#navigation--routing)
+2. [State Management](#state-management)
+3. [Data Layer](#data-layer)
+4. [Authentication](#authentication)
+5. [Real-Time Features](#real-time-features)
+6. [Component Architecture](#component-architecture)
+7. [Design System](#design-system)
+8. [Key Design Patterns](#key-design-patterns)
+9. [Data Flow Diagrams](#data-flow-diagrams)
 
 ---
 
-## 2. State Management — Zustand
+## Navigation & Routing
 
-All state is managed via Zustand stores in `stores/`. There is **no Redux, no Context** — just plain Zustand stores imported directly into components.
+Uses **Expo Router v6** (file-based routing). Every file in `app/` becomes a route.
 
-### Store Overview
+### Route Map
 
-| Store | File | Purpose |
-|-------|------|---------|
-| `useAuthStore` | `auth-store.ts` | User auth, profile, skipAuth |
-| `useWorkoutStore` | `workout-store.ts` | Active workout state (transient) |
-| `useSessionStore` | `session-store.ts` | Completed sessions, PRs, post-workout data |
-| `useProgramStore` | `program-store.ts` | Programs, days, builder state |
-| `useSocialStore` | `social-store.ts` | Groups, messages, invitations |
-| `useFilterStore` | `filter-store.ts` | Exercise library search/filter |
-| `useBodyStore` | `body-store.ts` | Body measurements |
-| `useCardioStore` | `cardio-store.ts` | Cardio sessions |
-| `usePhotoStore` | `photo-store.ts` | Progress photos |
+```
+/                          → Root layout (AuthGate + Stack)
+├── (auth)/                → Auth stack group
+│   ├── login              → Email/password login
+│   └── register           → Registration + profile creation
+├── (tabs)/                → Main tab navigator (5 tabs)
+│   ├── index              → Home (dashboard, calendar, FAB)
+│   ├── library/           → Exercise library stack
+│   │   ├── index          → Searchable exercise list
+│   │   ├── [id]           → Exercise detail
+│   │   └── filters        → Filter modal
+│   ├── program/           → Program builder stack
+│   │   ├── index          → Program overview + day editor
+│   │   ├── create         → Create program wizard
+│   │   ├── edit-day       → Edit day (add/remove/reorder exercises)
+│   │   └── pick-exercise  → Exercise picker modal
+│   ├── progress           → Stats overview (strength score, balance, PRs)
+│   └── social/            → Social groups stack
+│       ├── index          → Groups list + Invitations tab
+│       ├── [groupId]      → Group chat (real-time)
+│       ├── create         → Create / join group
+│       └── members        → Member management + invite users
+├── workout/               → Workout stack (slides up from bottom)
+│   ├── active             → Active workout tracker
+│   ├── freestyle          → Freestyle exercise picker
+│   ├── summary            → Post-workout summary
+│   ├── detail             → Past workout detail
+│   └── cardio             → Cardio session logger
+├── profile                → User profile editor
+└── stats/                 → Extended stats stack
+    ├── body               → Body measurements
+    └── photos             → Progress photos
+```
 
-### Auth Store (`auth-store.ts`)
+### Navigation Patterns
+
+- **AuthGate** (`app/_layout.tsx`): Wraps the entire app. If not authenticated, redirects to `(auth)/login`. If authenticated + on auth screen, redirects to `(tabs)`.
+- **Tab Navigator**: 5 tabs — Home, Library, Plan, Stats, Groups. Custom SVG icons with haptic feedback (`HapticTab`).
+- **Stack Groups**: `(auth)` and `(tabs)` are Expo Router groups with their own `_layout.tsx`. `workout` and `stats` are standalone stacks.
+- **Animations**: Workout screens slide up from bottom (`slide_from_bottom`). Profile and stats slide from right.
+
+### Tab Bar Configuration
+
+```typescript
+// 5 tabs with custom SVG icons, 72px height, dark theme
+{
+  backgroundColor: '#0f0f0f',
+  borderTopColor: 'rgba(255,255,255,0.06)',
+  height: 72,
+  paddingBottom: 16,
+  paddingTop: 10,
+}
+```
+
+Tabs: Home (`index`) | Library (`library`) | Plan (`program`) | Stats (`progress`) | Groups (`social`)
+
+---
+
+## State Management
+
+**9 Zustand stores**, all using the `create<T>()` pattern. No middleware (no persist, no devtools). State lives in memory only — Appwrite is the source of truth.
+
+### Store: `useAuthStore` (`stores/auth-store.ts`)
+
+Manages authentication and user profile.
 
 ```typescript
 interface AuthState {
-  user: Models.User | null          // Appwrite user object
-  profile: UserProfile | null       // User profile from user_profiles collection
-  isLoading: boolean                // True during initialization
-  isAuthenticated: boolean          // True if logged in or skipAuth
+  user: Models.User<Models.Preferences> | null  // Appwrite user object
+  profile: UserProfile | null                     // From user_profiles collection
+  isLoading: boolean                              // True during initialization
+  isAuthenticated: boolean                        // Gate for navigation
 
-  initialize: () => Promise<void>   // Check for existing session on app start
+  initialize: () => Promise<void>     // Check existing session on app launch
   login: (email, password) => Promise<void>
   register: (email, password, name) => Promise<void>
   logout: () => Promise<void>
-  skipAuth: () => void              // Creates fake dev user (userId: 'dev')
+  skipAuth: () => void                // Dev mode — fake user, no Appwrite
 }
 ```
 
-**Dev mode:** `skipAuth()` creates a mock user with `$id: 'dev'`. Throughout the codebase, checks like `userId === 'dev' || userId.startsWith('local')` skip Appwrite calls and use local-only state.
+**Key behaviors:**
+- `initialize()` is called once in root `_layout.tsx` on mount
+- `skipAuth()` creates a fake user with ID `'dev'` and profile with avatar color `#e8ff47`
+- Registration auto-creates a `user_profiles` document with random avatar color
 
-### Workout Store (`workout-store.ts`)
+---
 
-**Transient state** — only exists while a workout is in progress. Gets reset when `endWorkout()` is called.
+### Store: `useWorkoutStore` (`stores/workout-store.ts`)
+
+Active workout state — **in-memory only, not persisted**.
 
 ```typescript
 interface WorkoutState {
-  isActive: boolean                  // Is a workout in progress?
-  isPaused: boolean                  // Is the timer paused?
-  sessionId: string | null           // Appwrite session document ID
-  programDayName: string             // "Push Day A", "Freestyle", etc.
-  exercises: ActiveWorkoutExercise[] // The exercises being tracked
-  currentExerciseIndex: number       // Which exercise is active
-  startTime: number | null           // Date.now() when workout started
-  elapsedSeconds: number             // Running timer
-  pausedAtSeconds: number            // Where timer was when paused
-  restTimerSeconds: number           // Rest timer countdown
-  isResting: boolean                 // Is rest timer active?
+  isActive: boolean                    // Is a workout in progress?
+  isPaused: boolean                    // Is the timer paused?
+  sessionId: string | null             // Appwrite session doc ID
+  programDayName: string               // Display name for the workout
+  exercises: ActiveWorkoutExercise[]   // Exercises being tracked
+  currentExerciseIndex: number         // Currently selected exercise
+  startTime: number | null             // Date.now() when started
+  elapsedSeconds: number               // Timer value
+  pausedAtSeconds: number              // Elapsed when paused
+  restTimerSeconds: number             // Rest timer countdown
+  isResting: boolean                   // Is rest timer active?
 
-  startWorkout: (params) => void     // Begin a new workout
-  addSet: (exerciseIndex) => void    // Add a new set (copies last set's weight/reps)
-  completeSet: (exerciseIndex, setIndex, weight, reps) => void
-  nextExercise: () => void
-  pauseWorkout: () => void
-  resumeWorkout: () => void
-  endWorkout: () => { totalVolume, duration }  // Returns stats, resets state
-  reset: () => void
+  startWorkout: (params) => void       // Initialize workout from program day or freestyle
+  addSet: (exerciseIndex) => void      // Append set (copies prev weight/reps)
+  completeSet: (exIdx, setIdx, weight, reps) => void  // Mark set complete
+  nextExercise: () => void             // Advance to next exercise
+  updateElapsed: (seconds) => void     // Called by timer interval
+  startRest: (seconds) => void
+  stopRest: () => void
+  pauseWorkout: () => void             // Freeze timer
+  resumeWorkout: () => void            // Resume timer
+  endWorkout: () => { totalVolume, duration }  // Calculate stats + reset state
+  reset: () => void                    // Full state reset
 }
 ```
 
-> ⚠️ **Critical:** `endWorkout()` resets ALL state. If you need the exercises data after ending (e.g., for the summary screen), you must capture it **before** calling `endWorkout()`. See `active.tsx` where `completedExercises = [...exercises]` is captured before `endWorkout()`.
+**⚠️ Critical:** `endWorkout()` resets ALL state including `exercises`. Any code that needs exercise data after ending must capture it BEFORE calling `endWorkout()`. The session store's `setLastCompleted()` accepts exercises for this reason.
 
-### Session Store (`session-store.ts`)
+---
 
-Persists workout history and PRs.
+### Store: `useProgramStore` (`stores/program-store.ts`)
+
+Programs, days, and the program builder.
+
+```typescript
+interface ProgramState {
+  programs: Program[]                  // All user programs
+  currentProgram: Program | null       // Currently selected
+  days: ProgramDay[]                   // Days for current program
+  activeDayIndex: number               // Selected day tab index
+  isLoading: boolean
+  error: string | null
+
+  // Builder state (for create flow)
+  builderProgram: Partial<Program> | null
+  builderDays: ProgramDay[]
+  builderActiveDayIndex: number
+
+  // Actions
+  loadPrograms: (userId) => Promise<void>   // Fetch from Appwrite, fallback to defaults
+  loadDays: (programId) => Promise<void>
+  setActiveDayIndex: (index) => void
+  updateDayExercises: (dayIndex, exercises) => void
+  addExerciseToDay: (dayIndex, exercise) => void
+  saveDayToBackend: (dayIndex) => Promise<void>
+  loadDefaultProgram: (userId) => void      // 6-day PPL hardcoded fallback
+
+  // Builder actions
+  createNewProgram: (name, daysPerWeek, totalWeeks, userId, color?) => Promise<void>
+  addDay: (name) => Promise<void>
+  removeDay: (dayIndex) => Promise<void>
+  addExerciseToBuilderDay: (dayIndex, exercise) => void
+  removeExerciseFromDay: (dayIndex, exerciseIndex) => void
+  reorderExercise: (dayIndex, fromIndex, toIndex) => void
+  toggleSuperset: (dayIndex, exerciseIndex) => void
+  toggleDropSet: (dayIndex, exerciseIndex) => void
+  updateExerciseInDay: (dayIndex, exerciseIndex, updates) => void
+  saveBuilderDay: (dayIndex) => Promise<void>    // Saves name + exercises to Appwrite
+  updateDayName: (dayIndex, name) => void
+  deleteProgram: (programId) => Promise<void>    // Deletes program + all days
+  setCurrentProgram: (program) => void
+  clearBuilder: () => void
+  moveExercise: (dayIndex, fromIndex, direction: 'up' | 'down') => void
+  swapExercise: (dayIndex, exerciseIndex, newExerciseId, newExerciseName) => void
+}
+```
+
+**Key behaviors:**
+- `createNewProgram()` skips Appwrite for dev users (checks `userId === 'dev'`)
+- `addDay()` creates Appwrite doc or local placeholder
+- `saveBuilderDay()` persists both `name` and `exercises` (exercises as JSON string)
+- `loadDefaultProgram()` creates a hardcoded 6-day Push/Pull/Legs program
+- Builder state (`builderProgram`, `builderDays`) is separate from active program state
+- `moveExercise()` auto-saves to backend after reordering
+
+---
+
+### Store: `useSessionStore` (`stores/session-store.ts`)
+
+Workout history, personal records, and post-workout state.
 
 ```typescript
 interface SessionState {
-  recentSessions: WorkoutSession[]          // Last 3 completed
-  allSessions: WorkoutSession[]             // All sessions
-  personalRecords: PersonalRecord[]         // All PRs
-  lastCompletedSession: WorkoutSession | null // Just-finished workout
-  lastCompletedExercises: ActiveWorkoutExercise[] // Exercises from just-finished workout
-  newPRs: PersonalRecord[]                  // PRs set in last workout
+  recentSessions: WorkoutSession[]         // Last 3 completed
+  allSessions: WorkoutSession[]            // Full history (up to 100)
+  personalRecords: PersonalRecord[]        // All PRs
+  isLoading: boolean
+  lastCompletedSession: WorkoutSession | null   // For summary screen
+  lastCompletedExercises: ActiveWorkoutExercise[]  // Exercises from last workout
+  newPRs: PersonalRecord[]                 // PRs set in last workout
 
   loadRecent: (userId) => Promise<void>
   loadAll: (userId) => Promise<void>
   loadPRs: (userId) => Promise<void>
-  addSession: (session) => void
-  setLastCompleted: (session, exercises?) => void  // Called right before endWorkout
+  addSession: (session) => void            // Optimistic add to local state
+  setLastCompleted: (session, exercises?) => void
   setNewPRs: (prs) => void
   clearCompletionData: () => void
 }
 ```
 
-### Program Store (`program-store.ts`)
+---
 
-The most complex store. Manages both the **active program** (what you see on Home) and the **builder state** (when creating/editing programs).
+### Store: `useSocialStore` (`stores/social-store.ts`)
 
-```typescript
-interface ProgramState {
-  // Active data
-  programs: Program[]                 // All user's programs
-  currentProgram: Program | null      // The selected/active program
-  days: ProgramDay[]                  // Days of the current program
-  activeDayIndex: number
-
-  // Builder state (create/edit flow)
-  builderProgram: Partial<Program> | null
-  builderDays: ProgramDay[]
-  builderActiveDayIndex: number
-
-  // CRUD
-  loadPrograms: (userId) => Promise<void>
-  loadDays: (programId) => Promise<void>
-  createNewProgram: (name, daysPerWeek, totalWeeks, userId, color?) => Promise<void>
-  addDay: (name) => Promise<void>
-  removeDay: (dayIndex) => Promise<void>
-  deleteProgram: (programId) => Promise<void>
-  saveBuilderDay: (dayIndex) => Promise<void>    // Saves name + exercises to Appwrite
-
-  // Exercise management
-  addExerciseToBuilderDay: (dayIndex, exercise) => void
-  removeExerciseFromDay: (dayIndex, exerciseIndex) => void
-  reorderExercise: (dayIndex, fromIndex, toIndex) => void
-  moveExercise: (dayIndex, fromIndex, direction) => void  // 'up' | 'down'
-  swapExercise: (dayIndex, exerciseIndex, newId, newName) => void
-  toggleSuperset: (dayIndex, exerciseIndex) => void
-  toggleDropSet: (dayIndex, exerciseIndex) => void
-  updateExerciseInDay: (dayIndex, exerciseIndex, updates) => void
-  updateDayName: (dayIndex, name) => void
-}
-```
-
-**Dual state pattern:** The store maintains both `days` (active view) and `builderDays` (edit mode). When you modify exercises in the builder, both arrays are updated so changes reflect immediately everywhere.
-
-**Default program:** If no programs exist (new user or dev mode), `loadDefaultProgram()` creates a local Push/Pull/Legs program with 6 days of exercises.
-
-### Social Store (`social-store.ts`)
+Groups, messages, members, and invitations.
 
 ```typescript
 interface SocialState {
@@ -233,8 +240,13 @@ interface SocialState {
   messages: GroupMessage[]
   members: GroupMember[]
   invitations: GroupInvitation[]
+  isLoading: boolean
+  isMessagesLoading: boolean
 
   loadGroups: (userId) => Promise<void>
+  setActiveGroup: (group) => void          // Resets messages + members
+  loadMessages: (groupId) => Promise<void>
+  loadMembers: (groupId) => Promise<void>
   createGroup: (name, description, userId, displayName, avatarColor) => Promise<Group>
   joinGroupByCode: (code, userId, displayName, avatarColor) => Promise<Group>
   sendMessage: (groupId, text, userId, userName, avatarColor) => Promise<void>
@@ -248,167 +260,452 @@ interface SocialState {
 }
 ```
 
+**Key behaviors:**
+- `sendMessage()` adds message to state optimistically
+- `setActiveGroup()` clears messages and members (forces reload)
+- `acceptInvitation()` calls `joinGroupById()` then `respondToInvitation()`
+
 ---
 
-## 3. Data Flow
+### Store: `useFilterStore` (`stores/filter-store.ts`)
 
-```
-┌──────────────┐      ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-│   Appwrite   │ ←──→ │  database.ts │ ←──→ │   Zustand    │ ←──→ │   Screen     │
-│   Cloud      │      │  (CRUD ops)  │      │   Stores     │      │   (.tsx)     │
-└──────────────┘      └──────────────┘      └──────────────┘      └──────────────┘
-```
+Exercise library filter state — purely local, no Appwrite.
 
-1. **Screen mounts** → calls store action (e.g., `loadPrograms(userId)`)
-2. **Store action** → calls `database.ts` function (e.g., `db.listPrograms(userId)`)
-3. **database.ts** → calls Appwrite SDK (`databases.listDocuments(...)`)
-4. **Response** → store updates state via `set()`
-5. **Screen** re-renders via Zustand's reactivity
-
-### Error Handling Pattern
-
-Every store action follows the same pattern:
 ```typescript
-try {
-  const data = await db.someOperation(params)
-  set({ data })
-} catch {
-  // Silently fail OR fall back to local data
-  // Appwrite errors are caught, not thrown to UI
+interface FilterState {
+  search: string
+  muscleGroups: MuscleGroup[]       // Multi-select
+  equipment: Equipment[]            // Multi-select
+  difficulty: Difficulty | null     // Single-select or null
+
+  setSearch: (search) => void
+  toggleMuscleGroup: (group) => void
+  toggleEquipment: (equip) => void
+  setDifficulty: (difficulty) => void
+  reset: () => void
 }
 ```
 
-**Local fallback:** When Appwrite calls fail (or user is in dev mode), stores create local documents with `$id: 'local-${Date.now()}'`. These work fine for the UI but don't persist across app restarts.
+---
+
+### Store: `useBodyStore` (`stores/body-store.ts`)
+
+```typescript
+interface BodyState {
+  stats: BodyStat[]
+  isLoading: boolean
+  loadStats: (userId) => Promise<void>
+  addStat: (data) => Promise<void>      // Fallback to local on Appwrite failure
+  removeStat: (id) => Promise<void>
+}
+```
+
+### Store: `useCardioStore` (`stores/cardio-store.ts`)
+
+```typescript
+interface CardioState {
+  sessions: CardioSession[]
+  isLoading: boolean
+  loadSessions: (userId) => Promise<void>
+  addSession: (data) => Promise<void>
+  removeSession: (id) => Promise<void>
+}
+```
+
+### Store: `usePhotoStore` (`stores/photo-store.ts`)
+
+```typescript
+interface PhotoState {
+  photos: ProgressPhoto[]
+  isLoading: boolean
+  loadPhotos: (userId) => Promise<void>
+  addPhoto: (data) => Promise<void>
+  removePhoto: (id) => Promise<void>
+}
+```
 
 ---
 
-## 4. Real-Time Features
+## Data Layer
+
+### `lib/appwrite.ts` — Client Configuration
+
+```typescript
+// Exports:
+export const account: Account        // Auth operations
+export const databases: Databases    // CRUD operations
+export const avatars: Avatars        // Avatar generation
+export const storage: Storage        // File uploads
+export const client: Client          // Raw client (for Realtime subscriptions)
+
+export const DATABASE_ID = '698dd75900395a2e605e'
+export const STORAGE_BUCKET = 'progress_photos'
+
+export const COLLECTION = {
+  EXERCISES, PROGRAMS, PROGRAM_DAYS, WORKOUT_SESSIONS, WORKOUT_SETS,
+  PERSONAL_RECORDS, SOCIAL_POSTS, USER_PROFILES, GROUPS, GROUP_MEMBERS,
+  GROUP_MESSAGES, GROUP_INVITATIONS, BODY_STATS, CARDIO_SESSIONS, PROGRESS_PHOTOS,
+}
+
+export { ID, Query } from 'react-native-appwrite'
+```
+
+### `lib/database.ts` — All CRUD Operations (~40 functions)
+
+Every Appwrite database interaction goes through this file. Functions are organized by entity:
+
+**Programs:**
+- `listPrograms(userId)` → `Program[]`
+- `getProgram(programId)` → `Program`
+- `createProgram(data)` → `Program`
+- `updateProgram(programId, data)` → `Program`
+- `deleteProgram(programId)` → `void`
+
+**Program Days:**
+- `listProgramDays(programId)` → `ProgramDay[]` — auto-parses exercises from JSON
+- `createProgramDay(data)` → `ProgramDay` — auto-serializes exercises to JSON
+- `updateProgramDay(dayId, data)` → `ProgramDay` — auto-serializes exercises to JSON
+- `deleteProgramDay(dayId)` → `void`
+
+**Workout Sessions:**
+- `createWorkoutSession(data)` → `WorkoutSession`
+- `completeWorkoutSession(sessionId, stats)` → `WorkoutSession`
+- `listWorkoutSessions(userId, limit?)` → `WorkoutSession[]`
+- `getRecentSessions(userId, limit?)` → `WorkoutSession[]` — only completed sessions
+
+**Workout Sets:**
+- `createWorkoutSet(data)` → `WorkoutSet`
+- `updateWorkoutSet(setId, data)` → `WorkoutSet`
+- `listWorkoutSets(sessionId)` → `WorkoutSet[]`
+- `getExerciseHistory(userId, exerciseId, limit?)` → `WorkoutSet[]`
+
+**Personal Records:**
+- `listPersonalRecords(userId)` → `PersonalRecord[]`
+- `checkAndUpdatePR(userId, exerciseId, exerciseName, weight, reps)` → `{ isNewPR, record }`
+
+**Social Posts:**
+- `listSocialPosts(limit?)` → `SocialPost[]`
+- `createSocialPost(data)` → `SocialPost`
+- `toggleLike(postId, userId)` → `SocialPost`
+
+**User Profiles:**
+- `getUserProfile(userId)` → `UserProfile | null`
+- `updateUserProfile(profileId, data)` → `UserProfile`
+- `updateStreak(userId, profileId)` → `UserProfile`
+- `searchUsersByName(name)` → `any[]` — fulltext search for invitations
+
+**Groups:**
+- `createGroup(name, description, userId, displayName, avatarColor)` → `Group`
+- `getGroup(groupId)` → `Group`
+- `listUserGroups(userId)` → `Group[]` — finds memberships first, then fetches each group
+- `joinGroupByCode(code, userId, displayName, avatarColor)` → `Group`
+- `joinGroupById(groupId, userId, displayName, avatarColor)` → `Group`
+- `leaveGroup(groupId, userId)` → `void`
+- `listGroupMembers(groupId)` → `GroupMember[]`
+- `removeGroupMember(memberId, groupId)` → `void`
+
+**Group Messages:**
+- `sendGroupMessage(groupId, userId, userName, avatarColor, text, type?, workoutData?)` → `GroupMessage`
+- `listGroupMessages(groupId, limit?)` → `GroupMessage[]`
+- `shareWorkoutToGroups(groupIds, workoutData, text, userId, userName, avatarColor)` → `void`
+- `getLastGroupMessage(groupId)` → `GroupMessage | null`
+
+**Group Invitations:**
+- `sendGroupInvitation(data)` → `any`
+- `listPendingInvitations(userId)` → `any[]`
+- `respondToInvitation(invitationId, status)` → `void`
+
+**Body Stats / Cardio / Photos:**
+- `listBodyStats(userId)`, `createBodyStat(data)`, `deleteBodyStat(id)`
+- `listCardioSessions(userId)`, `createCardioSession(data)`, `deleteCardioSession(id)`
+- `listProgressPhotos(userId)`, `createProgressPhoto(data)`, `deleteProgressPhoto(id)`
+
+### `lib/auth.ts` — Authentication
+
+```typescript
+login(email, password) → Models.Session
+register(email, password, name) → Models.Session  // Also creates user_profiles doc
+getCurrentUser() → Models.User | null
+logout() → void
+getUserProfile(userId) → UserProfile | null
+```
+
+### `lib/utils.ts` — Pure Helpers
+
+```typescript
+calculate1RM(weight, reps) → number       // Epley formula
+calculateVolume(weight, reps) → number
+formatDuration(seconds) → "MM:SS"
+formatVolume(volume) → "12.5k" or "850"
+formatWeight(weight) → "1,250"
+getGreeting() → "Good morning" / "afternoon" / "evening"
+formatDate(date?) → "MONDAY, JUN 16"
+getRelativeTime(dateString) → "5m ago" / "Yesterday" / "Jun 10"
+getDayOfWeek() → 0-6 (Monday=0)
+```
+
+---
+
+## Authentication
+
+### Flow
+
+```
+App Launch
+  → RootLayout mounts
+  → useAuthStore.initialize() called
+  → account.get() checks for existing Appwrite session
+  → If session exists: fetch user profile, set isAuthenticated=true
+  → If no session: set isAuthenticated=false
+  → AuthGate redirects:
+      - Not authenticated → /(auth)/login
+      - Authenticated + on auth screen → /(tabs)
+```
+
+### Dev Mode
+
+```typescript
+// In auth-store.ts
+skipAuth: () => {
+  set({
+    user: { $id: 'dev', name: 'Alex', email: 'alex@dev.local' },
+    profile: { userId: 'dev', displayName: 'Alex', avatarColor: '#e8ff47', ... },
+    isAuthenticated: true,
+    isLoading: false,
+  })
+}
+```
+
+When `userId === 'dev'` or IDs start with `local-`, Appwrite calls are skipped in the program store.
+
+---
+
+## Real-Time Features
 
 ### Group Chat (Appwrite Realtime)
 
-`social/[groupId].tsx` subscribes to the `group_messages` collection:
+The group chat screen (`app/(tabs)/social/[groupId].tsx`) subscribes to Appwrite's WebSocket-based Realtime API:
 
 ```typescript
 const channel = `databases.${DATABASE_ID}.collections.${COLLECTION.GROUP_MESSAGES}.documents`
 const unsubscribe = client.subscribe(channel, (response) => {
-  if (response.payload.groupId !== groupId) return
-  if (events.some(e => e.includes('.create'))) {
-    loadMessages(groupId)  // Refresh from server
+  // Filter for current group
+  const msg = response.payload as GroupMessage
+  if (msg.groupId === groupId && response.events.includes('*.create')) {
+    // Add to messages state (deduplicate by $id)
   }
 })
 ```
 
-**Optimistic updates:** When sending a message, an optimistic `GroupMessage` is added to the store immediately (with `$id: 'optimistic-${Date.now()}'`), before the Appwrite call completes. If the send fails, the optimistic message is removed.
+**Optimistic sends:** When a user sends a message, a temporary message with `$id: 'temp-*'` is added to state immediately. When the real message arrives via Realtime, the temp is deduplicated.
 
-### Group Invitations
+### Invitations
 
-`social/index.tsx` subscribes to `group_invitations` for real-time invite notifications, filtering by `invitedUserId`.
+Invitations are fetched via polling (`loadInvitations(userId)`) on the social index screen mount. Not real-time yet.
 
 ---
 
-## 5. Theme System
+## Component Architecture
 
-All design tokens live in `constants/theme.ts`:
+### `ExerciseIcon` (`components/exercise-icon.tsx`)
+
+Anatomical SVG body diagram that highlights muscles for any exercise.
+
+- **67 exercise mappings** — maps exercise name → primary + secondary muscles
+- **14 muscle SVG paths** — chest, back, lats, shoulders, traps, biceps, triceps, forearms, core, quads, hamstrings, glutes, calves, hip_flexors
+- **Rendering:** Full body silhouette with highlighted muscles (primary: 85% opacity, secondary: 30%)
+- **Usage:** `<ExerciseIcon exerciseName="Bench Press" size={36} color="#ff6b6b" />`
+- **Lookup:** Name → lowercase/stripped → `EXERCISE_MUSCLES` map → muscle list → SVG paths
+
+### `StrengthScoreGauge` (`components/strength-gauges.tsx`)
+
+Arc gauge showing composite strength score (0–600) based on compound lift 1RMs.
+
+- Levels: Beginner (<100, gray), Novice (<200, blue), Intermediate (<350, yellow), Advanced (<500, orange), Elite (500+, red)
+- SVG arc with tick marks at score thresholds
+
+### `StrengthBalanceGauge`
+
+Radar/bar chart showing Push/Pull/Legs/Core balance.
+
+### `HapticTab` (`components/haptic-tab.tsx`)
+
+Tab button wrapper that triggers light haptic feedback on press.
+
+### UI Primitives (`components/ui/`)
+
+- `Button` — Styled pressable
+- `Card` — Surface container with border radius
+- `Chip` — Pill-shaped tag
+- `Collapsible` — Expandable section
+- `Input` — Text input with label
+
+---
+
+## Design System
+
+### Theme Tokens (`constants/theme.ts`)
+
+All design tokens are in a single file. The app uses **dark mode only** — both `Colors.dark` and `Colors.light` have identical values.
+
+**Color Palette:**
+- Background: `#0f0f0f` (near-black)
+- Accent: `#e8ff47` (neon yellow-green) — used for buttons, highlights, active states
+- Text hierarchy: `#ffffff` → `#888888` → `#555555` → `#444444`
+- Semantic: danger `#ff6b6b`, info `#6bc5ff`
+- Surfaces: Semi-transparent white (`rgba(255,255,255,0.04)` to `0.06`)
+
+**Spacing:** Compact scale (xs:4 → xxxxl:32). Most UI uses `Spacing.lg` (12) or `Spacing.xl` (16).
+
+**Font sizes:** Small scale (xs:8 → hero:26). Body text is `FontSize.base` (12) or `FontSize.lg` (13). Titles are `FontSize.title` (20).
+
+**Fonts:** System fonts per platform (iOS: system-ui, Android: normal, Web: system-ui stack).
+
+---
+
+## Key Design Patterns
+
+### 1. JSON Serialization for Complex Fields
+
+Appwrite doesn't support nested objects. The `exercises` field in `program_days` stores a `ProgramExercise[]` as a **JSON string**. All serialization/deserialization happens in `database.ts`:
 
 ```typescript
-Colors.dark.background    // '#0f0f0f'
-Colors.dark.surface       // 'rgba(255,255,255,0.04)'
-Colors.dark.accent        // '#e8ff47'
-Colors.dark.text          // '#ffffff'
-Colors.dark.textSecondary // '#888888'
-Colors.dark.textMuted     // '#555555'
-Colors.dark.danger        // '#ff6b6b'
-Colors.dark.info          // '#6bc5ff'
-Colors.dark.textOnAccent  // '#0a0a0a' (dark text on lime accent)
+// Creating: Array → JSON string
+exercises: JSON.stringify(data.exercises ?? [])
 
-Spacing.xs  // 4
-Spacing.sm  // 6
-Spacing.md  // 8
-Spacing.lg  // 12
-Spacing.xl  // 16
-Spacing.xxl // 20
-
-FontSize.xs    // 8
-FontSize.sm    // 10
-FontSize.base  // 12
-FontSize.xl    // 14
-FontSize.title // 20
-FontSize.hero  // 26
-
-FontWeight.regular  // '400'
-FontWeight.semibold // '600'
-FontWeight.bold     // '700'
-
-BorderRadius.sm   // 8
-BorderRadius.lg   // 12
-BorderRadius.pill // 20
-BorderRadius.full // 9999
+// Reading: JSON string → Array
+exercises: JSON.parse(doc.exercises)
 ```
 
-**Note:** `Colors.light` is an exact mirror of `Colors.dark` — the app is dark-mode only. Both keys exist so `useThemeColor()` works without errors, but they return the same values.
+### 2. Denormalized Fields
 
----
+To avoid extra queries, frequently-displayed fields are duplicated:
+- `GroupMember.displayName` / `avatarColor` (from user profile)
+- `GroupMessage.userName` / `avatarColor` (from user profile)
+- `GroupInvitation.groupName` / `groupColor` / `inviterName`
+- `WorkoutSession.programDayName` (from program day)
+- `PersonalRecord.exerciseName` (from exercise)
 
-## 6. Key Components
+### 3. Local Fallback Pattern
 
-### ExerciseIcon (`components/exercise-icon.tsx`)
-
-~600 lines. Renders a Caliber-style anatomical muscle map SVG.
-
-**Props:** `exerciseName?`, `exerciseId?`, `muscleGroup?`, `size?`, `color?`
-
-**How it works:**
-1. Normalizes the exercise name to a lookup key
-2. Finds the exercise in `EXERCISE_MUSCLES` map (55 entries)
-3. Falls back to: partial name match → muscleGroup prop → generic outline
-4. Renders a full body silhouette with 13 SVG muscle group paths
-5. Primary muscles: bright color at 85% opacity
-6. Secondary muscles: same color at 30% opacity
-
-### StrengthGauges (`components/strength-gauges.tsx`)
-
-Two gauge components:
-- **StrengthScoreGauge** — speedometer arc, score number, level badge, delta indicator
-- **StrengthBalanceGauge** — horizontal bar chart for push/pull/legs/core balance
-
-Both use raw SVG for rendering (no chart library).
-
----
-
-## 7. Key Patterns
-
-### Serialization for Appwrite
-
-Appwrite doesn't support nested objects in string attributes. The `exercises` field in `program_days` is stored as a JSON string:
-
+Many store actions have this pattern:
 ```typescript
-// Writing → serialize
-const payload = { ...data, exercises: JSON.stringify(data.exercises) }
-
-// Reading → deserialize
-const parsed = doc as ProgramDay
-if (typeof parsed.exercises === 'string') {
-  parsed.exercises = JSON.parse(parsed.exercises)
+try {
+  const result = await db.createSomething(data)
+  set({ items: [result, ...state.items] })
+} catch {
+  const local = { ...data, $id: `local-${Date.now()}` }
+  set({ items: [local, ...state.items] })
 }
 ```
 
-This is handled automatically in `database.ts` — don't bypass it.
+This ensures the UI works even when Appwrite is unreachable. Local IDs start with `local-`.
 
-### ID Prefix Convention
+### 4. Exercise Data Capture Before Reset
 
-- `local-*` — locally created, not in Appwrite
-- `dev` — dev/skipAuth user
-- `optimistic-*` — optimistic UI update, pending server confirmation
-- Everything else — Appwrite-generated IDs
-
-### Screen ↔ Store Data Capture
-
-The `endWorkout()` call in `workout-store.ts` resets all state. The `active.tsx` screen captures exercises BEFORE calling it:
+The workout store's `endWorkout()` resets all state. Screens that need exercise data post-workout must capture it first:
 
 ```typescript
-const completedExercises = [...exercises]  // Capture before reset
-const { totalVolume, duration } = endWorkout()  // This resets everything
-setLastCompleted(completedSession, completedExercises)  // Save for summary
+// In active.tsx
+const completedExercises = [...exercises]  // CAPTURE BEFORE RESET
+const { totalVolume, duration } = endWorkout()  // This resets exercises to []
+setLastCompleted(session, completedExercises)
 ```
 
-This is a critical pattern. Any future code that needs post-workout data must follow this same approach.
+### 5. Store-per-Domain
+
+Each domain has its own Zustand store. Stores don't directly reference each other — screens import from multiple stores and coordinate in component code.
+
+### 6. Appwrite Type Casting
+
+Appwrite returns generic `Document` types. All database.ts functions cast with `as unknown as T`:
+
+```typescript
+return doc as unknown as Program
+```
+
+This is a deliberate pattern throughout — not a bug.
+
+---
+
+## Data Flow Diagrams
+
+### Starting a Strength Workout
+
+```
+User taps FAB "+" → "Strength Workout"
+  → If 0 programs: redirect to Plan tab
+  → If 1 program: show day picker
+  → If N programs: show program picker → day picker
+  → User picks a day
+  → createWorkoutSession() → Appwrite creates session doc
+  → workoutStore.startWorkout({ sessionId, exercises from ProgramDay })
+  → router.push('/workout/active')
+  → Active workout screen renders exercises with set tracking
+  → User completes sets → completeSet() updates store
+  → User taps End → capture exercises → endWorkout() → calculate stats
+  → completeWorkoutSession() → Appwrite updates session
+  → For each completed set: createWorkoutSet() + checkAndUpdatePR()
+  → setLastCompleted(session, exercises)
+  → router.replace('/workout/summary')
+```
+
+### Starting a Freestyle Workout
+
+```
+User taps FAB "+" → "Freestyle"
+  → router.push('/workout/freestyle')
+  → Exercise picker modal opens immediately
+  → User adds exercises + configures sets/reps
+  → User taps "Start Workout"
+  → createWorkoutSession() with programDayName="Freestyle"
+  → workoutStore.startWorkout({ exercises built from picker })
+  → router.replace('/workout/active')
+  → Same active workout flow as strength
+```
+
+### Sending a Group Message
+
+```
+User types message → taps send
+  → Optimistic: add temp message to store ({ $id: 'temp-xxx' })
+  → sendGroupMessage() → Appwrite creates document
+  → Appwrite Realtime fires 'create' event
+  → Subscription callback receives new message
+  → Deduplicates (skips if already in state by sender+text match)
+  → Message appears instantly for all group members
+```
+
+### PR Detection
+
+```
+Workout ends → for each completed set:
+  → checkAndUpdatePR(userId, exerciseId, exerciseName, weight, reps)
+  → calculate1RM = weight × (1 + reps/30)
+  → Query existing PR for this user+exercise
+  → If new 1RM > existing: update document, return isNewPR=true
+  → If no existing: create new PR document
+  → Collect all new PRs → setNewPRs() for summary screen display
+```
+
+---
+
+## Known Technical Details
+
+### Appwrite Quirks
+- String attributes have max sizes — passing longer strings silently truncates or errors
+- Unknown fields in `createDocument()` cause 400 errors — must strip extra fields
+- `listDocuments()` returns max 100 docs by default — use `Query.limit()` explicitly
+- The `exercises` field on `program_days` is a string, not an array — always serialize
+
+### Performance
+- Tab screens use `lazy: true` — only mount when first visited
+- `ExerciseIcon` and SVG tab icons are wrapped in `React.memo`
+- FlatList used for long lists (exercise library, workout history)
+- `useMemo` for computed values (strength score, balance chart, filtered exercises)
+
+### Type Safety
+- Path alias `@/` maps to project root in tsconfig
+- `as unknown as T` pattern for Appwrite document casting
+- Zod used in form validation (program creation, registration)
+- Expo Router typed routes enabled (`experiments.typedRoutes: true`)

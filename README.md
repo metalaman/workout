@@ -1,338 +1,522 @@
-# 🏋️ IronLog — Workout Tracker
+# IronLog 🏋️
 
-A feature-rich workout tracking app built with React Native (Expo) and Appwrite. Inspired by [Caliber](https://caliberstrong.com/) — dark theme, anatomical exercise illustrations, strength scoring, and group-based social features.
+A full-featured workout tracking app built with React Native (Expo) and Appwrite. Dark theme, anatomical muscle maps, real-time group chat, and comprehensive training program management.
 
 ## Tech Stack
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| Framework | React Native (Expo) | SDK 54 |
-| Language | TypeScript | ~5.9.2 |
-| Routing | Expo Router (file-based) | v4 |
-| State | Zustand | 5.x |
-| Backend | Appwrite (Cloud) | — |
-| Styling | NativeWind (Tailwind) + StyleSheet | 4.x |
-| Charts | Victory Native | — |
-| Animations | react-native-reanimated | — |
-| Gestures | react-native-gesture-handler | — |
-| SVG | react-native-svg | — |
-| Forms | react-hook-form + zod | — |
+| Framework | React Native | 0.81.5 |
+| Platform | Expo (SDK 54) | ~54.0.33 |
+| Router | Expo Router | ~6.0.23 |
+| Backend | Appwrite (react-native-appwrite) | ^0.20.0 |
+| State | Zustand | ^5.0.11 |
+| Forms | React Hook Form + Zod | ^7.71.1 / ^4.3.6 |
+| SVG | react-native-svg | 15.12.1 |
+| Charts | Victory Native | ^41.20.2 |
+| Animations | react-native-reanimated | ~4.1.1 |
+| Haptics | expo-haptics | ~15.0.8 |
+| Gradients | expo-linear-gradient | ~15.0.8 |
+| Storage | react-native-mmkv | ^4.1.2 |
+| Secure Storage | expo-secure-store | ~15.0.8 |
+| TypeScript | ~5.9.2 | |
 
-## Quick Start
+## Features
+
+### Workout Tracking
+- **Strength workouts** — Follow a program day or freestyle (pick your own exercises)
+- **Active workout screen** — Track/Overview/History/Notes tabs, per-set weight/reps input, set completion toggles
+- **Bottom control bar** — Timer (pause/resume), end workout button
+- **Freestyle mode** — Exercise picker → configure sets/reps → launches same active workout screen
+- **Cardio logging** — Running, cycling, swimming, walking, rowing, elliptical, HIIT, other
+- **Workout summary** — Post-workout review showing exercises performed, volumes, PRs, duration
+- **PR detection** — Automatic personal record tracking using Epley 1RM formula
+
+### Program Builder
+- **Create programs** — Name, color, days per week
+- **Day editor** — Add exercises from 67-exercise library, configure sets/reps/weight
+- **Exercise management** — Reorder (move up/down), swap exercises, remove, add
+- **Superset support** — Link adjacent exercises into superset groups
+- **Drop set tagging** — Mark sets as drop sets
+- **Multi-program support** — Create and switch between programs
+- **Program picker** — When starting a strength workout: pick program → pick day
+
+### Exercise Library
+- **67 exercises** covering 6 muscle groups (Chest, Back, Legs, Shoulders, Arms, Core)
+- **Anatomical muscle map icons** — SVG body diagrams highlighting primary/secondary muscles
+- **Filterable** — By muscle group, equipment type, difficulty level, text search
+- **Detail view** — Instructions, difficulty, equipment, muscle targeting
+
+### Social / Groups
+- **Create groups** — Name, description, auto-generated 6-char invite code
+- **Join groups** — Via invite code or direct invitation
+- **Real-time group chat** — Appwrite Realtime WebSocket subscription (instant messages)
+- **Workout sharing** — Share completed workouts to groups
+- **Member management** — Admin can remove members, invite users by name search
+- **Group invitations** — Send/accept/decline invitations, Groups/Invitations tabs
+
+### Progress Tracking
+- **Weekly calendar view** — Dot indicators for workout days, week navigation with month picker
+- **Strength Score** — Composite gauge based on compound lift 1RMs (Beginner → Elite)
+- **Strength Balance** — Push/Pull/Legs/Core radar chart
+- **Personal Records** — Per-exercise PR tracking with 1RM estimates
+- **Body stats** — Weight, body fat %, chest/waist/hips/arms/thighs measurements
+- **Progress photos** — Front/Side/Back pose categories
+- **Workout history** — Full session list with volume/duration/exercise details
+
+### User System
+- **Email/password auth** via Appwrite
+- **User profiles** — Display name, avatar color, streak count, weekly goal
+- **Dev mode** — `skipAuth()` for local development without Appwrite
+- **Streak tracking** — Consecutive weeks with workouts
+
+## Project Structure
+
+```
+IronLog/
+├── app/                          # Expo Router screens (file-based routing)
+│   ├── _layout.tsx               # Root layout — AuthGate + Stack navigator
+│   ├── profile.tsx               # User profile screen
+│   ├── (auth)/                   # Auth group (login/register)
+│   │   ├── _layout.tsx
+│   │   ├── login.tsx
+│   │   └── register.tsx
+│   ├── (tabs)/                   # Main tab navigator
+│   │   ├── _layout.tsx           # Tab bar config (Home/Library/Plan/Stats/Groups)
+│   │   ├── index.tsx             # Home screen (1326 lines — main dashboard)
+│   │   ├── progress.tsx          # Stats & progress overview
+│   │   ├── library/              # Exercise library
+│   │   │   ├── _layout.tsx
+│   │   │   ├── index.tsx         # Exercise list with search/filters
+│   │   │   ├── [id].tsx          # Exercise detail
+│   │   │   └── filters.tsx       # Filter modal
+│   │   ├── program/              # Program builder
+│   │   │   ├── _layout.tsx
+│   │   │   ├── index.tsx         # Program overview (754 lines)
+│   │   │   ├── create.tsx        # Create new program flow
+│   │   │   ├── edit-day.tsx      # Day editor with exercise list
+│   │   │   └── pick-exercise.tsx # Exercise picker modal
+│   │   └── social/               # Social/Groups
+│   │       ├── _layout.tsx
+│   │       ├── index.tsx         # Groups list + Invitations tab
+│   │       ├── [groupId].tsx     # Group chat (real-time)
+│   │       ├── create.tsx        # Create/join group
+│   │       └── members.tsx       # Member list + invite users
+│   ├── workout/                  # Workout flow (stack screens)
+│   │   ├── _layout.tsx
+│   │   ├── active.tsx            # Active workout tracker (840 lines)
+│   │   ├── freestyle.tsx         # Freestyle exercise picker
+│   │   ├── summary.tsx           # Post-workout summary
+│   │   ├── detail.tsx            # Past workout detail view
+│   │   └── cardio.tsx            # Cardio session logger
+│   └── stats/                    # Extended stats screens
+│       ├── _layout.tsx
+│       ├── body.tsx              # Body measurements
+│       └── photos.tsx            # Progress photos
+├── stores/                       # Zustand state management
+│   ├── auth-store.ts             # Auth state + user profile
+│   ├── workout-store.ts          # Active workout state
+│   ├── program-store.ts          # Programs + builder state
+│   ├── session-store.ts          # Workout history + PRs
+│   ├── social-store.ts           # Groups, messages, invitations
+│   ├── body-store.ts             # Body measurements
+│   ├── cardio-store.ts           # Cardio sessions
+│   ├── filter-store.ts           # Exercise library filters
+│   └── photo-store.ts            # Progress photos
+├── lib/                          # Core utilities
+│   ├── appwrite.ts               # Appwrite client, DATABASE_ID, COLLECTION constants
+│   ├── auth.ts                   # Auth functions (login, register, logout)
+│   ├── database.ts               # All Appwrite CRUD operations (~40 functions)
+│   └── utils.ts                  # Pure helpers (1RM calc, formatting, date utils)
+├── types/                        # TypeScript interfaces
+│   ├── exercise.ts               # Exercise, MuscleGroup, Equipment, Difficulty
+│   ├── program.ts                # Program, ProgramDay, ProgramExercise, ProgramSet
+│   ├── workout.ts                # WorkoutSession, WorkoutSet, ActiveWorkoutExercise/Set
+│   ├── social.ts                 # Group, GroupMember, GroupMessage, GroupInvitation, etc.
+│   ├── user.ts                   # UserProfile, PersonalRecord, BodyStat, CardioSession, ProgressPhoto
+│   └── index.ts                  # Barrel re-exports
+├── constants/
+│   ├── theme.ts                  # Colors, Spacing, BorderRadius, FontSize, FontWeight, Fonts
+│   └── exercises.ts              # SEED_EXERCISES constant (35 exercises with full metadata)
+├── components/
+│   ├── exercise-icon.tsx          # Anatomical SVG muscle map component
+│   ├── strength-gauges.tsx        # StrengthScoreGauge + StrengthBalanceGauge SVGs
+│   ├── haptic-tab.tsx             # Tab button with haptic feedback
+│   └── ui/                        # Generic UI primitives
+│       ├── button.tsx
+│       ├── card.tsx
+│       ├── chip.tsx
+│       ├── collapsible.tsx
+│       ├── input.tsx
+│       └── icon-symbol.tsx
+├── .env.example                   # Required env vars template
+├── app.json                       # Expo config (bundle ID, splash screen, etc.)
+├── package.json                   # Dependencies
+└── tsconfig.json                  # TypeScript config with @/ path alias
+```
+
+## Setup
 
 ### Prerequisites
-- Node.js ≥ 18
-- Expo CLI (`npx expo`)
-- iOS Simulator / Android Emulator / Expo Go
 
-### Setup
+- Node.js 18+
+- Expo CLI (`npx expo`)
+- An Appwrite instance (Cloud or self-hosted)
+- iOS Simulator / Android Emulator / Physical device with Expo Go
+
+### 1. Clone and Install
 
 ```bash
-# Clone
-git clone git@github.com:metalaman/workout.git
-cd workout/IronLog
-
-# Install dependencies
+git clone <repo-url>
+cd IronLog
 npm install
+```
 
-# Create .env file
+### 2. Configure Environment
+
+```bash
 cp .env.example .env
-# Edit .env with your Appwrite credentials (see below)
+```
 
-# Start dev server
+Edit `.env`:
+```
+EXPO_PUBLIC_APPWRITE_ENDPOINT=https://your-instance.cloud.appwrite.io/v1
+EXPO_PUBLIC_APPWRITE_PROJECT_ID=your_project_id
+```
+
+### 3. Set Up Appwrite Backend
+
+Create a database in your Appwrite project, then create all 15 collections listed below.
+
+### 4. Run
+
+```bash
 npx expo start
 ```
 
-### Environment Variables
+Press `i` for iOS, `a` for Android, or scan QR with Expo Go.
 
-```env
-EXPO_PUBLIC_APPWRITE_ENDPOINT=https://nyc.cloud.appwrite.io/v1
-EXPO_PUBLIC_APPWRITE_PROJECT_ID=698d5a490007a7ec0e2e
-```
+### Dev Mode
 
-### Dev Mode (Skip Auth)
-
-On the login screen, tap **"Skip"** to use the app without an Appwrite account. This creates a local user (`userId: 'dev'`) with a default Push/Pull/Legs program. Data is stored in-memory only and won't persist across app restarts.
+The app has a `skipAuth()` function in the auth store that creates a fake "dev" user. This bypasses Appwrite entirely for UI development. Local IDs are prefixed with `local-`.
 
 ---
 
 ## Appwrite Backend
 
-- **Endpoint:** `https://nyc.cloud.appwrite.io/v1`
-- **Project ID:** `698d5a490007a7ec0e2e`
+### Database
+
 - **Database ID:** `698dd75900395a2e605e`
+- **Endpoint:** Set via `EXPO_PUBLIC_APPWRITE_ENDPOINT`
+- **Project ID:** Set via `EXPO_PUBLIC_APPWRITE_PROJECT_ID`
 
-### Collections (15 total)
+### Collections (15)
 
-| Collection ID | Purpose | Key Attributes |
-|--------------|---------|----------------|
-| `exercises` | Exercise library | `name` (str), `muscleGroup` (str), `secondaryMuscles` (str[]), `equipment` (str), `difficulty` (str), `icon` (str), `instructions` (str) |
-| `programs` | Workout programs | `userId` (str), `name` (str), `daysPerWeek` (int), `currentWeek` (int), `totalWeeks` (int), `color` (str) |
-| `program_days` | Days within a program | `programId` (str), `userId` (str), `name` (str), `order` (int), `exercises` (str — **JSON-serialized** `ProgramExercise[]`) |
-| `workout_sessions` | Completed/in-progress workouts | `userId` (str), `programDayId` (str), `programDayName` (str), `startedAt` (str), `completedAt` (str), `totalVolume` (float), `duration` (int), `notes` (str) |
-| `workout_sets` | Individual sets within a session | `sessionId` (str), `userId` (str), `exerciseId` (str), `setNumber` (int), `weight` (float), `reps` (int), `isCompleted` (bool), `rpe` (float) |
-| `personal_records` | Per-exercise PRs | `userId` (str), `exerciseId` (str), `exerciseName` (str), `weight` (float), `reps` (int), `estimated1RM` (float), `achievedAt` (str) |
-| `social_posts` | Global social feed posts | `userId` (str), `userName` (str), `avatarColor` (str), `sessionId` (str), `text` (str), `stats` (str), `isPR` (bool), `likes` (int), `likedBy` (str[]) |
-| `user_profiles` | User display info & streaks | `userId` (str), `displayName` (str), `avatarColor` (str), `streakCount` (int), `lastWorkoutDate` (str), `weeklyGoal` (int) |
-| `groups` | Social groups | `name` (str), `description` (str), `createdBy` (str), `avatarColor` (str), `memberCount` (int), `inviteCode` (str) |
-| `group_members` | Group membership | `groupId` (str), `userId` (str), `displayName` (str), `avatarColor` (str), `role` (str: admin/member), `joinedAt` (str) |
-| `group_messages` | Group chat messages | `groupId` (str), `userId` (str), `userName` (str), `avatarColor` (str), `text` (str), `type` (str: message/workout_share), `workoutData` (str) |
-| `group_invitations` | Pending group invites | `groupId` (str), `groupName` (str), `groupColor` (str), `invitedBy` (str), `inviterName` (str), `invitedUserId` (str), `status` (str: pending/accepted/declined) |
-| `body_stats` | Body measurements | `userId` (str), `bodyWeight` (float), `bodyFat` (float), `chest`/`waist`/`hips`/`arms`/`thighs` (float), `unit` (str), `recordedAt` (str), `notes` (str) |
-| `cardio_sessions` | Cardio activity logs | `userId` (str), `type` (str), `durationMinutes` (int), `distance` (float), `distanceUnit` (str), `calories` (int), `avgHeartRate` (int), `startedAt` (str), `notes` (str) |
-| `progress_photos` | Progress photo tracking | `userId` (str), `photoUrl` (str), `pose` (str: Front/Side/Back), `bodyWeight` (float), `takenAt` (str), `notes` (str) |
-
-> ⚠️ **Important:** `program_days.exercises` is stored as a **JSON string** in Appwrite (not an array). The `database.ts` layer handles serialization/deserialization automatically. If you write to this field directly, you must `JSON.stringify()` the exercises array.
-
-### Indexes
-
-Key indexes configured:
-- `programs`: `by_user` (userId)
-- `program_days`: `by_program` (programId), `by_user` (userId)
-- `workout_sessions`: `by_user` (userId), `by_date` (userId + startedAt)
-- `workout_sets`: `by_session` (sessionId), `by_exercise` (userId + exerciseId)
-- `personal_records`: `by_user` (userId), `by_exercise` (userId + exerciseId)
-- `user_profiles`: `by_user` (userId), `search_name` (fulltext on displayName)
-- `group_invitations`: `by_invitee` (invitedUserId + status), `by_group` (groupId + status)
+All collections use the constant names from `lib/appwrite.ts → COLLECTION`.
 
 ---
 
-## Directory Structure
+#### `exercises`
+Exercise library. Can be populated from `SEED_EXERCISES` in `constants/exercises.ts`.
 
-```
-IronLog/
-├── app/                          # Expo Router file-based routes
-│   ├── _layout.tsx               # Root layout (AuthGate + Stack)
-│   ├── profile.tsx               # User profile screen
-│   │
-│   ├── (auth)/                   # Auth group (unauthenticated)
-│   │   ├── _layout.tsx
-│   │   ├── login.tsx
-│   │   └── register.tsx
-│   │
-│   ├── (tabs)/                   # Main tab navigator
-│   │   ├── _layout.tsx           # Tab bar (Home, Library, Plan, Stats, Groups)
-│   │   ├── index.tsx             # Home screen
-│   │   ├── progress.tsx          # Progress/stats screen
-│   │   │
-│   │   ├── library/              # Exercise library
-│   │   │   ├── _layout.tsx
-│   │   │   ├── index.tsx         # Browse exercises
-│   │   │   ├── [id].tsx          # Exercise detail
-│   │   │   └── filters.tsx       # Filter modal
-│   │   │
-│   │   ├── program/              # Program management
-│   │   │   ├── _layout.tsx
-│   │   │   ├── index.tsx         # Program list + day view
-│   │   │   ├── create.tsx        # Create program wizard
-│   │   │   ├── edit-day.tsx      # Edit day (add exercises, config sets)
-│   │   │   └── pick-exercise.tsx # Exercise picker modal
-│   │   │
-│   │   └── social/               # Groups & social
-│   │       ├── _layout.tsx
-│   │       ├── index.tsx         # Groups list + invitations tabs
-│   │       ├── [groupId].tsx     # Group chat
-│   │       ├── create.tsx        # Create group
-│   │       └── members.tsx       # Group members + invite
-│   │
-│   ├── workout/                  # Workout flow (modal stack)
-│   │   ├── _layout.tsx
-│   │   ├── active.tsx            # Active workout tracker
-│   │   ├── freestyle.tsx         # Freestyle workout (pick exercises → active)
-│   │   ├── cardio.tsx            # Cardio logging
-│   │   ├── summary.tsx           # Post-workout summary
-│   │   └── detail.tsx            # Past workout detail
-│   │
-│   └── stats/                    # Stats screens (modal stack)
-│       ├── _layout.tsx
-│       ├── body.tsx              # Body measurements
-│       └── photos.tsx            # Progress photos
-│
-├── components/                   # Shared components
-│   ├── exercise-icon.tsx         # Anatomical muscle map SVG (600+ lines)
-│   ├── strength-gauges.tsx       # Strength Score + Balance gauges
-│   ├── haptic-tab.tsx            # Tab bar button with haptic feedback
-│   └── ui/                       # Generic UI primitives
-│       ├── button.tsx
-│       ├── card.tsx
-│       ├── chip.tsx
-│       ├── collapsible.tsx
-│       └── input.tsx
-│
-├── constants/
-│   ├── theme.ts                  # Colors, Spacing, FontSize, FontWeight, etc.
-│   └── exercises.ts              # Seed exercise library (35 exercises)
-│
-├── hooks/
-│   ├── use-color-scheme.ts
-│   ├── use-color-scheme.web.ts
-│   └── use-theme-color.ts
-│
-├── lib/                          # Core business logic
-│   ├── appwrite.ts               # Appwrite client + collection constants
-│   ├── auth.ts                   # Auth functions (login, register, logout)
-│   ├── database.ts               # All Appwrite CRUD operations (600+ lines)
-│   └── utils.ts                  # Utility functions (1RM, formatting, etc.)
-│
-├── stores/                       # Zustand state stores
-│   ├── auth-store.ts             # User authentication state
-│   ├── workout-store.ts          # Active workout state (in-progress)
-│   ├── session-store.ts          # Completed sessions + PRs
-│   ├── program-store.ts          # Programs + days + builder
-│   ├── social-store.ts           # Groups, messages, invitations
-│   ├── filter-store.ts           # Exercise library filters
-│   ├── body-store.ts             # Body measurements
-│   ├── cardio-store.ts           # Cardio sessions
-│   └── photo-store.ts            # Progress photos
-│
-├── types/                        # TypeScript interfaces
-│   ├── index.ts                  # Barrel export
-│   ├── exercise.ts               # Exercise, ExerciseFilters, MuscleGroup, etc.
-│   ├── program.ts                # Program, ProgramDay, ProgramExercise, ProgramSet
-│   ├── workout.ts                # WorkoutSession, WorkoutSet, ActiveWorkoutExercise
-│   ├── social.ts                 # Group, GroupMember, GroupMessage, GroupInvitation
-│   └── user.ts                   # UserProfile, PersonalRecord, BodyStat, CardioSession, ProgressPhoto
-│
-├── app.json                      # Expo config
-├── package.json
-├── tsconfig.json
-├── .env.example
-└── .gitignore
-```
+| Field | Type | Notes |
+|-------|------|-------|
+| name | string (100) | Exercise name |
+| muscleGroup | string (50) | Primary: Chest, Back, Legs, Shoulders, Arms, Core |
+| secondaryMuscles | string[] (100 each) | Array of secondary muscle names |
+| equipment | string (50) | Barbell, Dumbbell, Cable, Machine, Bodyweight, Bands |
+| difficulty | string (50) | Beginner, Intermediate, Advanced |
+| icon | string (10) | Legacy emoji, replaced by ExerciseIcon SVG |
+| instructions | string (2000) | Step-by-step guide |
 
 ---
 
-## Features
+#### `programs`
+User-created workout programs.
 
-### 🏠 Home Screen
-- **Strength Score gauge** — aggregate 1RM-based score with level badge (Beginner → Elite)
-- **Strength Balance gauge** — push/pull/legs/core balance visualization
-- **Weekly calendar** — colored checkmarks for completed days, browsable with ← → chevrons
-- **Month calendar picker** — tap 📅 icon to jump to any date
-- **Inline day detail** — tap a date to see workout summary or today's plan
-- **Recent workouts** — shows actual program days with ExerciseIcon + exercise count
-- **"+" FAB** — opens activity type picker (Strength, Freestyle, Cardio, Body Stat, Progress Photo)
-- **Program/day picker** — strength workout prompts for program + day selection
+| Field | Type | Notes |
+|-------|------|-------|
+| userId | string (50) | Owner |
+| name | string (100) | Program name |
+| daysPerWeek | integer | 1–7 |
+| currentWeek | integer | Current cycle week |
+| totalWeeks | integer | 0 = indefinite |
+| color | string (20) | Hex color for UI |
 
-### 💪 Active Workout
-- **Tab bar** — Track, Overview, History, Notes
-- **Exercise cards** — set/rep/weight inputs with "Last:" hints from previous sessions
-- **1RM badge** — shows % of 1RM after completing a set
-- **+ Add Set** — appends a new set with previous set's weight/reps
-- **Complete Exercise** — advances to next exercise
-- **Rest timer** — auto-starts between sets
-- **Bottom control bar** — X (end), elapsed timer, ⏸ (pause/resume)
-- **Superset support** — alternating exercises in a superset group
-- **Drop set support** — visual badges on drop set exercises
+---
 
-### 📋 Programs
-- **Program list** — "My Programs" cards with color dots, tap to open
-- **"+" FAB** — create new program (Name & Color → Days per week)
-- **Day builder** — add exercises, configure sets/weight/reps
-- **Superset toggle** — links exercises together
-- **Drop set toggle** — marks exercises for drop sets
-- **Drag to reorder** — ≡ handle on exercise cards
-- **Swap exercise** — replace exercise while keeping set config
-- **↑↓ arrows** — move exercises up/down
-- **Color picker** — 8 preset colors for program identification
-- **Caliber-style UI** — tab bar (Exercises | Overview | Notes), exercise cards with ExerciseIcon
+#### `program_days`
+Individual days within a program.
 
-### 🎯 Freestyle Workout
-- Two-phase flow: pick exercises → launch real active workout screen
-- Exercise picker with search + muscle group filters
-- Set/rep stepper per exercise before starting
+| Field | Type | Notes |
+|-------|------|-------|
+| programId | string (50) | Parent program |
+| userId | string (50) | Owner |
+| name | string (100) | Day name (e.g., "Push A") |
+| order | integer | Display order (0-indexed) |
+| exercises | string (50000) | ⚠️ **JSON string** of `ProgramExercise[]` — serialized/deserialized by database.ts |
 
-### 📊 Progress
-- **1RM cards** — hero display per exercise with trend history
-- **Personal records** — full PR list
-- **Weekly volume** chart
-- **Session history**
+---
 
-### 👥 Social (Groups)
-- **Groups tab** — list of joined groups with last message preview
-- **Invitations tab** — pending invites with Accept/Decline, red badge count
-- **Group chat** — real-time messaging via Appwrite Realtime (WebSocket)
-- **Workout sharing** — share completed workouts to selected groups
-- **Create group** — name, description, color picker, auto-generates invite code
-- **Members screen** — list with roles, invite code copy, user search + invite button
-- **Join by code** — enter invite code to join a group
+#### `workout_sessions`
+Completed or in-progress workout sessions.
 
-### 🏃 Cardio
-- 8 activity types (Running, Cycling, Swimming, etc.)
-- Duration timer (manual or live), distance, calories, heart rate
+| Field | Type | Notes |
+|-------|------|-------|
+| userId | string (50) | User |
+| programDayId | string (50) | Which program day |
+| programDayName | string (100) | Day name (denormalized) |
+| startedAt | string (50) | ISO timestamp |
+| completedAt | string (50) | ISO timestamp, null if in-progress |
+| totalVolume | integer | Sum of weight × reps |
+| duration | integer | Seconds |
+| notes | string (2000) | User notes |
 
-### 📏 Body Stats
-- Weight, body fat %, 5 measurements, unit toggles
-- Trend chart + history
+---
 
-### 📸 Progress Photos
-- Grid gallery with pose filter (Front/Side/Back)
-- Side-by-side comparison
+#### `workout_sets`
+Individual sets within a session.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| sessionId | string (50) | Parent session |
+| userId | string (50) | User |
+| exerciseId | string (50) | Exercise reference |
+| setNumber | integer | 1-indexed within exercise |
+| weight | float | Weight in lbs |
+| reps | integer | Reps completed |
+| isCompleted | boolean | Whether fully completed |
+| rpe | float | Rate of Perceived Exertion (1–10), optional |
+
+---
+
+#### `personal_records`
+Per-exercise best lifts. One record per user per exercise — updated when beaten.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| userId | string (50) | User |
+| exerciseId | string (50) | Exercise |
+| exerciseName | string (100) | Denormalized name |
+| weight | float | PR weight |
+| reps | integer | PR reps |
+| estimated1RM | float | Epley formula: weight × (1 + reps/30) |
+| achievedAt | string (50) | ISO timestamp |
+
+---
+
+#### `user_profiles`
+One profile per user, created during registration.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| userId | string (50) | Appwrite Auth user ID |
+| displayName | string (100) | Display name |
+| avatarColor | string (20) | Hex color for avatar circle |
+| streakCount | integer | Consecutive workout weeks |
+| lastWorkoutDate | string (50) | ISO timestamp, nullable |
+| weeklyGoal | integer | Target days per week |
+
+**Indexes:** Fulltext on `displayName` (for user search in invitations)
+
+---
+
+#### `social_posts`
+Global social feed (less used than group chat).
+
+| Field | Type | Notes |
+|-------|------|-------|
+| userId | string (50) | Author |
+| userName | string (100) | Author name |
+| avatarColor | string (20) | Author avatar color |
+| sessionId | string (50) | Related workout, nullable |
+| text | string (2000) | Post content |
+| stats | string (2000) | Workout stats summary |
+| isPR | boolean | PR celebration post |
+| likes | integer | Like count |
+| likedBy | string[] (50 each) | Array of user IDs |
+
+---
+
+#### `groups`
+Social groups.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| name | string (100) | Group name |
+| description | string (500) | Optional description |
+| createdBy | string (50) | Creator user ID |
+| avatarColor | string (20) | Group color |
+| memberCount | integer | Denormalized count |
+| inviteCode | string (10) | 6-char alphanumeric code |
+
+---
+
+#### `group_members`
+Group membership records.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| groupId | string (50) | Group |
+| userId | string (50) | Member |
+| displayName | string (100) | Denormalized name |
+| avatarColor | string (20) | Denormalized color |
+| role | string (20) | `admin` or `member` |
+| joinedAt | string (50) | ISO timestamp |
+
+---
+
+#### `group_messages`
+Group chat messages. **Real-time delivery** via Appwrite Realtime subscription.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| groupId | string (50) | Group |
+| userId | string (50) | Sender |
+| userName | string (100) | Sender name |
+| avatarColor | string (20) | Sender color |
+| text | string (5000) | Message content |
+| type | string (20) | `message` or `workout_share` |
+| workoutData | string (5000) | JSON `WorkoutShareData`, nullable |
+
+---
+
+#### `group_invitations`
+Invitation system for groups.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| groupId | string (50) | Target group |
+| groupName | string (100) | Denormalized |
+| groupColor | string (20) | Denormalized |
+| invitedBy | string (50) | Inviter user ID |
+| inviterName | string (100) | Inviter name |
+| invitedUserId | string (50) | Invitee user ID |
+| status | string (20) | `pending`, `accepted`, `declined` |
+
+---
+
+#### `body_stats`
+Body measurement records.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| userId | string (50) | User |
+| bodyWeight | float | Nullable |
+| bodyFat | float | Percentage, nullable |
+| chest | float | Nullable |
+| waist | float | Nullable |
+| hips | float | Nullable |
+| arms | float | Nullable |
+| thighs | float | Nullable |
+| unit | string (10) | `lbs`/`in` or `kg`/`cm` |
+| recordedAt | string (50) | ISO timestamp |
+| notes | string (1000) | Nullable |
+
+---
+
+#### `cardio_sessions`
+Cardio activity logs.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| userId | string (50) | User |
+| type | string (50) | Running, Cycling, Swimming, Walking, Rowing, Elliptical, HIIT, Other |
+| durationMinutes | integer | Duration |
+| distance | float | Nullable |
+| distanceUnit | string (10) | `mi` or `km` |
+| calories | integer | Nullable |
+| avgHeartRate | integer | Nullable |
+| startedAt | string (50) | ISO timestamp |
+| notes | string (1000) | Nullable |
+
+---
+
+#### `progress_photos`
+Progress photo entries.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| userId | string (50) | User |
+| photoUrl | string (500) | Photo URI |
+| pose | string (20) | Front, Side, Back |
+| bodyWeight | float | Nullable |
+| takenAt | string (50) | ISO timestamp |
+| notes | string (1000) | Nullable |
+
+---
+
+### Storage Buckets
+
+| Bucket | ID | Purpose |
+|--------|-----|---------|
+| Progress Photos | `progress_photos` | Stores uploaded progress photos |
 
 ---
 
 ## Design System
 
-### Theme
-- **Mode:** Dark only (light theme mirrors dark values)
-- **Background:** `#0f0f0f`
-- **Surface:** `rgba(255,255,255,0.04)`
-- **Accent:** `#e8ff47` (lime green)
-- **Text:** `#ffffff` (primary), `#888888` (secondary), `#555555` (muted)
-- **Danger:** `#ff6b6b`
-- **Info:** `#6bc5ff`
+The app uses a **dark-only theme** (light mode has identical values).
 
-### Exercise Icons
-Caliber-style anatomical muscle maps — full human body silhouette (front view) with muscle groups highlighted:
-- **Primary muscles:** bright red, 85% opacity
-- **Secondary muscles:** lighter red, 30% opacity
-- 13 muscle group SVG paths: chest, back, lats, shoulders, traps, biceps, triceps, forearms, core, quads, hamstrings, glutes, calves
-- All 55 exercises mapped to specific muscle groups
+### Colors (`constants/theme.ts`)
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `background` | `#0f0f0f` | Screen backgrounds |
+| `surface` | `rgba(255,255,255,0.04)` | Card backgrounds |
+| `surfaceLight` | `rgba(255,255,255,0.06)` | Slightly elevated surfaces |
+| `accent` | `#e8ff47` | Primary accent (neon yellow-green) |
+| `accentDark` | `#a8e000` | Darker accent variant |
+| `accentGreen` | `#7fff00` | Secondary green accent |
+| `text` | `#ffffff` | Primary text |
+| `textSecondary` | `#888888` | Secondary text |
+| `textMuted` | `#555555` | Muted/disabled text |
+| `danger` | `#ff6b6b` | Error/destructive actions |
+| `info` | `#6bc5ff` | Informational elements |
+| `border` | `rgba(255,255,255,0.06)` | Subtle borders |
 
 ### Muscle Group Colors
+
 | Group | Color |
 |-------|-------|
-| Chest | `#ff6b6b` |
-| Back | `#6bc5ff` |
-| Legs | `#7fff00` |
-| Shoulders | `#ffaa47` |
-| Arms | `#e8ff47` |
-| Core | `#c77dff` |
+| Chest | `#ff6b6b` (red) |
+| Back | `#6bc5ff` (blue) |
+| Legs | `#7fff00` (green) |
+| Shoulders | `#ffaa47` (orange) |
+| Arms | `#e8ff47` (yellow) |
+| Core | `#c77dff` (purple) |
+
+### Spacing Scale
+
+`xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 20, xxxl: 24, xxxxl: 32`
+
+### Font Sizes
+
+`xs: 8, sm: 10, md: 11, base: 12, lg: 13, xl: 14, xxl: 16, title: 20, hero: 26`
+
+### Border Radius
+
+`sm: 8, md: 10, lg: 12, xl: 14, xxl: 16, pill: 20, full: 9999`
 
 ---
 
-## Commit History
+## App Configuration
 
-| Commit | Description |
-|--------|-------------|
-| `9743f13` | Show exercises in workout summary + edit mode + group invitations |
-| `d44e2ae` | Group invitations with tabs and user search |
-| `2c4c435` | Real-time group chat via Appwrite Realtime |
-| `9cef0ac` | Clean up unused weeks styles |
-| `d61855f` | Freestyle → exercise picker + real active workout |
-| `4d9f140` | Fix program day names not saving |
-| `ab36144` | Fix Add Set button |
-| `49213e5` | Bottom workout control bar (pause/resume/end) |
-| `3bb92d9` | Inline day detail card on date tap |
-| `d845666` | Calendar modal opacity fix |
-| `5948f15` | Week navigator + month calendar picker |
-| `df0f646` | Fix color attribute in Appwrite |
-| `d385c88` | Fix Appwrite persistence |
-| `3dac67e` | Fix program creation, clickable week/recent items |
-| `f65dbe2` | Clickable week view + recent workouts |
-| `ef83dab` | Draggable exercises, program list + FAB, color picker |
-| `77b6b02` | Skip Appwrite for dev users |
-| `77b95ba` | Anatomical muscle map exercise illustrations |
-| `0f64cb0` | Caliber-inspired program + workout UI redesign |
-| `542c606` | Strength score/balance, weekly calendar, activity picker, freestyle, cardio, body stats, photos |
-| `4fd1307` | Program builder, superset/dropset, reorder/swap, 1RM tracking |
-| `78acaa9` | Groups-based social with messaging |
-| `50e8603` | Database ID fix + .env.example |
-| `2e537c8` | Appwrite backend wiring, all screens, navigation |
-| `e9eadb7` | Initial scaffold |
-
----
+```json
+{
+  "name": "IronLog",
+  "slug": "IronLog",
+  "scheme": "ironlog",
+  "bundleIdentifier": "com.aman.ironlogapp",
+  "orientation": "portrait",
+  "newArchEnabled": true,
+  "experiments": {
+    "typedRoutes": true,
+    "reactCompiler": true
+  }
+}
+```
 
 ## License
 
-Private — not open source.
+Private project.
