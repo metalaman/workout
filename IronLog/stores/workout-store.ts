@@ -19,6 +19,7 @@ interface WorkoutState {
     programDayName: string
     exercises: ActiveWorkoutExercise[]
   }) => void
+  addSet: (exerciseIndex: number) => void
   completeSet: (exerciseIndex: number, setIndex: number, weight: number, reps: number) => void
   nextExercise: () => void
   updateElapsed: (seconds: number) => void
@@ -56,6 +57,25 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       currentExerciseIndex: 0,
       startTime: Date.now(),
       elapsedSeconds: 0,
+    }),
+
+  addSet: (exerciseIndex) =>
+    set((state) => {
+      const exercises = [...state.exercises]
+      const exercise = { ...exercises[exerciseIndex] }
+      const sets = [...exercise.sets]
+      const lastSet = sets[sets.length - 1]
+      sets.push({
+        setNumber: sets.length + 1,
+        weight: lastSet?.weight ?? 0,
+        reps: lastSet?.reps ?? 10,
+        previousWeight: lastSet?.previousWeight ?? null,
+        previousReps: lastSet?.previousReps ?? null,
+        isCompleted: false,
+      })
+      exercise.sets = sets
+      exercises[exerciseIndex] = exercise
+      return { exercises }
     }),
 
   completeSet: (exerciseIndex, setIndex, weight, reps) =>

@@ -33,7 +33,7 @@ export default function ActiveWorkoutScreen() {
   const {
     programDayName, exercises, currentExerciseIndex, elapsedSeconds,
     isResting, restTimerSeconds, sessionId, isPaused,
-    completeSet, nextExercise, updateElapsed, startRest, stopRest,
+    addSet, completeSet, nextExercise, updateElapsed, startRest, stopRest,
     pauseWorkout, resumeWorkout, endWorkout, isActive,
   } = useWorkoutStore()
   const { setLastCompleted, setNewPRs, addSession, loadRecent, personalRecords, loadPRs } = useSessionStore()
@@ -398,7 +398,7 @@ export default function ActiveWorkoutScreen() {
             })}
 
             {/* + Add Set */}
-            <TouchableOpacity style={styles.addSetBtn} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.addSetBtn} activeOpacity={0.7} onPress={() => addSet(currentExerciseIndex)}>
               <Text style={styles.addSetText}>+ Add Set</Text>
             </TouchableOpacity>
 
