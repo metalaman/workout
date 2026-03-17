@@ -10,22 +10,48 @@ import Svg, { Path } from 'react-native-svg'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSocialStore } from '@/stores/social-store'
-import type { Group } from '@/types/social'
+import { client, DATABASE_ID, COLLECTION } from '@/lib/appwrite'
+import type { Group, GroupInvitation } from '@/types/social'
 
 export default function GroupsListScreen() {
   const router = useRouter()
   const { user, profile } = useAuthStore()
-  const { groups, isLoading, loadGroups, joinGroupByCode } = useSocialStore()
+  const {
+    groups, invitations, isLoading,
+    loadGroups, loadInvitations, joinGroupByCode,
+    acceptInvitation, declineInvitation,
+  } = useSocialStore()
+
+  const [activeTab, setActiveTab] = useState<'groups' | 'invitations'>('groups')
   const [joinModalVisible, setJoinModalVisible] = useState(false)
   const [inviteCode, setInviteCode] = useState('')
   const [joining, setJoining] = useState(false)
 
   useEffect(() => {
-    if (user?.$id) loadGroups(user.$id)
+    if (user?.$id) {
+      loadGroups(user.$id)
+      loadInvitations(user.$id)
+    }
+  }, [user?.$id])
+
+  // Real-time subscription for new invitations
+  useEffect(() => {
+    if (!user?.$id) return
+    const channel = `databases.${DATABASE_ID}.collections.${COLLECTION.GROUP_INVITATIONS}.documents`
+    const unsubscribe = client.subscribe(channel, (response) => {
+      const payload = response.payload as any
+      if (payload?.invitedUserId === user.$id) {
+        loadInvitations(user.$id)
+      }
+    })
+    return () => { unsubscribe() }
   }, [user?.$id])
 
   const onRefresh = useCallback(() => {
-    if (user?.$id) loadGroups(user.$id)
+    if (user?.$id) {
+      loadGroups(user.$id)
+      loadInvitations(user.$id)
+    }
   }, [user?.$id])
 
   const handleJoinByCode = async () => {
@@ -46,6 +72,19 @@ export default function GroupsListScreen() {
     } finally {
       setJoining(false)
     }
+  }
+
+  const handleAccept = async (inv: GroupInvitation) => {
+    if (!user?.$id) return
+    await acceptInvitation(inv, user.$id, profile?.displayName ?? user.name ?? 'Athlete', profile?.avatarColor ?? '#e8ff47')
+    Alert.alert('Joined!', `You're now a member of ${inv.groupName}`)
+  }
+
+  const handleDecline = (inv: GroupInvitation) => {
+    Alert.alert('Decline Invite', `Decline invitation to ${inv.groupName}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Decline', style: 'destructive', onPress: () => declineInvitation(inv.$id) },
+    ])
   }
 
   const renderGroup = ({ item }: { item: Group }) => (
@@ -70,7 +109,40 @@ export default function GroupsListScreen() {
     </TouchableOpacity>
   )
 
-  const EmptyState = () => (
+  const renderInvitation = ({ item }: { item: GroupInvitation }) => {
+    const timeAgo = getTimeAgo(item.$createdAt)
+    return (
+      <View style={styles.inviteCard}>
+        <View style={[styles.inviteAvatar, { backgroundColor: item.groupColor || Colors.dark.accent }]}>
+          <Text style={styles.inviteAvatarText}>{item.groupName.charAt(0).toUpperCase()}</Text>
+        </View>
+        <View style={styles.inviteInfo}>
+          <Text style={styles.inviteName} numberOfLines={1}>{item.groupName}</Text>
+          <Text style={styles.inviteMeta} numberOfLines={1}>
+            Invited by {item.inviterName} · {timeAgo}
+          </Text>
+          <View style={styles.inviteActions}>
+            <TouchableOpacity
+              style={styles.acceptBtn}
+              activeOpacity={0.8}
+              onPress={() => handleAccept(item)}
+            >
+              <Text style={styles.acceptBtnText}>Accept</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.declineBtn}
+              activeOpacity={0.8}
+              onPress={() => handleDecline(item)}
+            >
+              <Text style={styles.declineBtnText}>Decline</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    )
+  }
+
+  const EmptyGroups = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIcon}>
         <Svg width={48} height={48} viewBox="0 0 24 24" fill="none">
@@ -100,11 +172,23 @@ export default function GroupsListScreen() {
     </View>
   )
 
+  const EmptyInvitations = () => (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyIcon}>
+        <Svg width={48} height={48} viewBox="0 0 24 24" fill="none">
+          <Path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm16 2l-8 5-8-5" stroke={Colors.dark.textMuted} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      </View>
+      <Text style={styles.emptyTitle}>No invitations</Text>
+      <Text style={styles.emptySubtitle}>When someone invites you to a group, it'll show up here</Text>
+    </View>
+  )
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Groups</Text>
+        <Text style={styles.headerTitle}>Social</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.headerBtn} onPress={() => setJoinModalVisible(true)}>
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -122,22 +206,55 @@ export default function GroupsListScreen() {
         </View>
       </View>
 
-      {/* Groups List */}
-      <FlatList
-        data={groups}
-        keyExtractor={(item) => item.$id}
-        renderItem={renderGroup}
-        contentContainerStyle={groups.length === 0 ? styles.emptyContainer : styles.listContent}
-        ListEmptyComponent={isLoading ? null : EmptyState}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={onRefresh}
-            tintColor={Colors.dark.accent}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      />
+      {/* Tab Bar */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'groups' && styles.tabActive]}
+          onPress={() => setActiveTab('groups')}
+        >
+          <Text style={[styles.tabText, activeTab === 'groups' && styles.tabTextActive]}>Groups</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'invitations' && styles.tabActive]}
+          onPress={() => setActiveTab('invitations')}
+        >
+          <Text style={[styles.tabText, activeTab === 'invitations' && styles.tabTextActive]}>
+            Invitations
+          </Text>
+          {invitations.length > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{invitations.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
+      {activeTab === 'groups' ? (
+        <FlatList
+          data={groups}
+          keyExtractor={(item) => item.$id}
+          renderItem={renderGroup}
+          contentContainerStyle={groups.length === 0 ? styles.emptyContainer : styles.listContent}
+          ListEmptyComponent={isLoading ? null : EmptyGroups}
+          refreshControl={
+            <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={Colors.dark.accent} />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <FlatList
+          data={invitations}
+          keyExtractor={(item) => item.$id}
+          renderItem={renderInvitation}
+          contentContainerStyle={invitations.length === 0 ? styles.emptyContainer : styles.listContent}
+          ListEmptyComponent={isLoading ? null : EmptyInvitations}
+          refreshControl={
+            <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={Colors.dark.accent} />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       {/* Join Modal */}
       <Modal visible={joinModalVisible} transparent animationType="fade">
@@ -185,201 +302,132 @@ export default function GroupsListScreen() {
   )
 }
 
+function getTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.dark.background,
-  },
+  container: { flex: 1, backgroundColor: Colors.dark.background },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xxl,
-    paddingVertical: Spacing.xl,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: Spacing.xxl, paddingVertical: Spacing.xl,
   },
-  headerTitle: {
-    color: Colors.dark.text,
-    fontSize: FontSize.hero,
-    fontWeight: FontWeight.extrabold,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-  },
+  headerTitle: { color: Colors.dark.text, fontSize: FontSize.hero, fontWeight: FontWeight.extrabold },
+  headerActions: { flexDirection: 'row', gap: Spacing.md },
   headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 40, height: 40, borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.surface, alignItems: 'center', justifyContent: 'center',
   },
-  listContent: {
-    paddingHorizontal: Spacing.xxl,
-    paddingBottom: Spacing.xxxxl,
-    gap: Spacing.md,
+  // Tab bar
+  tabBar: {
+    flexDirection: 'row', marginHorizontal: Spacing.xxl, marginBottom: Spacing.lg,
+    backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg, padding: 3,
   },
-  emptyContainer: {
-    flex: 1,
+  tab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: Spacing.md, borderRadius: BorderRadius.md, gap: Spacing.sm,
   },
+  tabActive: { backgroundColor: Colors.dark.surfaceLight },
+  tabText: { color: Colors.dark.textMuted, fontSize: FontSize.lg, fontWeight: FontWeight.semibold },
+  tabTextActive: { color: Colors.dark.text },
+  badge: {
+    backgroundColor: '#ff4444', borderRadius: 10, minWidth: 20, height: 20,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
+  },
+  badgeText: { color: '#fff', fontSize: 11, fontWeight: FontWeight.bold },
+  // Lists
+  listContent: { paddingHorizontal: Spacing.xxl, paddingBottom: Spacing.xxxxl, gap: Spacing.md },
+  emptyContainer: { flex: 1 },
+  // Group card
   groupCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.dark.surface,
-    borderRadius: BorderRadius.xxl,
-    padding: Spacing.xl,
-    gap: Spacing.lg,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.dark.surface,
+    borderRadius: BorderRadius.xxl, padding: Spacing.xl, gap: Spacing.lg,
   },
   groupAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 48, height: 48, borderRadius: BorderRadius.full,
+    alignItems: 'center', justifyContent: 'center',
   },
-  groupAvatarText: {
-    color: Colors.dark.textOnAccent,
-    fontSize: FontSize.title,
-    fontWeight: FontWeight.extrabold,
+  groupAvatarText: { color: Colors.dark.textOnAccent, fontSize: FontSize.title, fontWeight: FontWeight.extrabold },
+  groupInfo: { flex: 1 },
+  groupName: { color: Colors.dark.text, fontSize: FontSize.xl, fontWeight: FontWeight.semibold },
+  groupMeta: { color: Colors.dark.textMuted, fontSize: FontSize.md, marginTop: 2 },
+  // Invitation card
+  inviteCard: {
+    flexDirection: 'row', backgroundColor: Colors.dark.surface,
+    borderRadius: BorderRadius.xxl, padding: Spacing.xl, gap: Spacing.lg,
+    borderWidth: 1, borderColor: 'rgba(232, 255, 71, 0.15)',
   },
-  groupInfo: {
-    flex: 1,
+  inviteAvatar: {
+    width: 48, height: 48, borderRadius: BorderRadius.full,
+    alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start', marginTop: 4,
   },
-  groupName: {
-    color: Colors.dark.text,
-    fontSize: FontSize.xl,
-    fontWeight: FontWeight.semibold,
+  inviteAvatarText: { color: Colors.dark.textOnAccent, fontSize: FontSize.title, fontWeight: FontWeight.extrabold },
+  inviteInfo: { flex: 1 },
+  inviteName: { color: Colors.dark.text, fontSize: FontSize.xl, fontWeight: FontWeight.semibold },
+  inviteMeta: { color: Colors.dark.textMuted, fontSize: FontSize.md, marginTop: 2 },
+  inviteActions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg },
+  acceptBtn: {
+    backgroundColor: Colors.dark.accent, borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xxl,
   },
-  groupMeta: {
-    color: Colors.dark.textMuted,
-    fontSize: FontSize.md,
-    marginTop: 2,
+  acceptBtnText: { color: Colors.dark.textOnAccent, fontSize: FontSize.base, fontWeight: FontWeight.bold },
+  declineBtn: {
+    backgroundColor: Colors.dark.surfaceLight, borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xxl,
   },
+  declineBtnText: { color: Colors.dark.textSecondary, fontSize: FontSize.base, fontWeight: FontWeight.semibold },
   // Empty state
   emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xxxxl,
+    flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.xxxxl,
   },
   emptyIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 80, height: 80, borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.surface, alignItems: 'center', justifyContent: 'center',
     marginBottom: Spacing.xxl,
   },
-  emptyTitle: {
-    color: Colors.dark.text,
-    fontSize: FontSize.title,
-    fontWeight: FontWeight.bold,
-    marginBottom: Spacing.md,
-  },
-  emptySubtitle: {
-    color: Colors.dark.textMuted,
-    fontSize: FontSize.lg,
-    textAlign: 'center',
-    marginBottom: Spacing.xxxl,
-  },
-  emptyActions: {
-    gap: Spacing.lg,
-    width: '100%',
-  },
-  emptyButton: {
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
-  },
-  emptyButtonGrad: {
-    padding: Spacing.xl,
-    alignItems: 'center',
-    borderRadius: BorderRadius.lg,
-  },
-  emptyButtonText: {
-    color: Colors.dark.textOnAccent,
-    fontSize: FontSize.xl,
-    fontWeight: FontWeight.bold,
-  },
+  emptyTitle: { color: Colors.dark.text, fontSize: FontSize.title, fontWeight: FontWeight.bold, marginBottom: Spacing.md },
+  emptySubtitle: { color: Colors.dark.textMuted, fontSize: FontSize.lg, textAlign: 'center', marginBottom: Spacing.xxxl },
+  emptyActions: { gap: Spacing.lg, width: '100%' },
+  emptyButton: { borderRadius: BorderRadius.lg, overflow: 'hidden' },
+  emptyButtonGrad: { padding: Spacing.xl, alignItems: 'center', borderRadius: BorderRadius.lg },
+  emptyButtonText: { color: Colors.dark.textOnAccent, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
   emptyButtonOutline: {
-    borderWidth: 1,
-    borderColor: Colors.dark.accentBorder,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
-    alignItems: 'center',
+    borderWidth: 1, borderColor: Colors.dark.accentBorder, borderRadius: BorderRadius.lg,
+    padding: Spacing.xl, alignItems: 'center',
   },
-  emptyButtonOutlineText: {
-    color: Colors.dark.accent,
-    fontSize: FontSize.xl,
-    fontWeight: FontWeight.semibold,
-  },
+  emptyButtonOutlineText: { color: Colors.dark.accent, fontSize: FontSize.xl, fontWeight: FontWeight.semibold },
   // Modal
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.xxxxl,
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center',
+    alignItems: 'center', padding: Spacing.xxxxl,
   },
   modalContent: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: BorderRadius.xxl,
-    padding: Spacing.xxxl,
-    width: '100%',
+    backgroundColor: '#1a1a1a', borderRadius: BorderRadius.xxl, padding: Spacing.xxxl, width: '100%',
   },
-  modalTitle: {
-    color: Colors.dark.text,
-    fontSize: FontSize.title,
-    fontWeight: FontWeight.bold,
-    marginBottom: Spacing.sm,
-  },
-  modalSubtitle: {
-    color: Colors.dark.textMuted,
-    fontSize: FontSize.lg,
-    marginBottom: Spacing.xxl,
-  },
+  modalTitle: { color: Colors.dark.text, fontSize: FontSize.title, fontWeight: FontWeight.bold, marginBottom: Spacing.sm },
+  modalSubtitle: { color: Colors.dark.textMuted, fontSize: FontSize.lg, marginBottom: Spacing.xxl },
   codeInput: {
-    backgroundColor: Colors.dark.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
-    color: Colors.dark.text,
-    fontSize: FontSize.title,
-    fontWeight: FontWeight.bold,
-    textAlign: 'center',
-    letterSpacing: 8,
-    borderWidth: 1,
-    borderColor: Colors.dark.accentBorder,
+    backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg, padding: Spacing.xl,
+    color: Colors.dark.text, fontSize: FontSize.title, fontWeight: FontWeight.bold,
+    textAlign: 'center', letterSpacing: 8, borderWidth: 1, borderColor: Colors.dark.accentBorder,
   },
-  modalActions: {
-    flexDirection: 'row',
-    gap: Spacing.lg,
-    marginTop: Spacing.xxl,
-  },
+  modalActions: { flexDirection: 'row', gap: Spacing.lg, marginTop: Spacing.xxl },
   modalCancel: {
-    flex: 1,
-    padding: Spacing.xl,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.surface,
-    alignItems: 'center',
+    flex: 1, padding: Spacing.xl, borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.surface, alignItems: 'center',
   },
-  modalCancelText: {
-    color: Colors.dark.textSecondary,
-    fontSize: FontSize.xl,
-    fontWeight: FontWeight.semibold,
-  },
+  modalCancelText: { color: Colors.dark.textSecondary, fontSize: FontSize.xl, fontWeight: FontWeight.semibold },
   modalJoin: {
-    flex: 1,
-    padding: Spacing.xl,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.accent,
-    alignItems: 'center',
+    flex: 1, padding: Spacing.xl, borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.accent, alignItems: 'center',
   },
-  modalJoinDisabled: {
-    opacity: 0.4,
-  },
-  modalJoinText: {
-    color: Colors.dark.textOnAccent,
-    fontSize: FontSize.xl,
-    fontWeight: FontWeight.bold,
-  },
+  modalJoinDisabled: { opacity: 0.4 },
+  modalJoinText: { color: Colors.dark.textOnAccent, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
 })

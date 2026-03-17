@@ -528,3 +528,74 @@ export async function createProgressPhoto(data: Omit<ProgressPhoto, '$id'>): Pro
 export async function deleteProgressPhoto(id: string): Promise<void> {
   await databases.deleteDocument(DATABASE_ID, COLLECTION.PROGRESS_PHOTOS, id)
 }
+
+// ─── Group Invitations ───────────────────────────────────────────────────────
+
+export async function sendGroupInvitation(data: {
+  groupId: string
+  groupName: string
+  groupColor: string
+  invitedBy: string
+  inviterName: string
+  invitedUserId: string
+}): Promise<any> {
+  return databases.createDocument(DATABASE_ID, COLLECTION.GROUP_INVITATIONS, ID.unique(), {
+    ...data,
+    status: 'pending',
+  })
+}
+
+export async function listPendingInvitations(userId: string): Promise<any[]> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.GROUP_INVITATIONS, [
+    Query.equal('invitedUserId', userId),
+    Query.equal('status', 'pending'),
+    Query.orderDesc('$createdAt'),
+  ])
+  return res.documents
+}
+
+export async function respondToInvitation(invitationId: string, status: 'accepted' | 'declined'): Promise<void> {
+  await databases.updateDocument(DATABASE_ID, COLLECTION.GROUP_INVITATIONS, invitationId, { status })
+}
+
+export async function searchUsersByName(name: string): Promise<any[]> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.USER_PROFILES, [
+    Query.search('displayName', name),
+    Query.limit(10),
+  ])
+  return res.documents
+}
+
+export async function joinGroupById(
+  groupId: string,
+  userId: string,
+  displayName: string,
+  avatarColor: string
+): Promise<Group> {
+  const doc = await databases.getDocument(DATABASE_ID, COLLECTION.GROUPS, groupId)
+  const group = doc as unknown as Group
+
+  // Check if already a member
+  const existing = await databases.listDocuments(DATABASE_ID, COLLECTION.GROUP_MEMBERS, [
+    Query.equal('groupId', groupId),
+    Query.equal('userId', userId),
+    Query.limit(1),
+  ])
+  if (existing.documents.length > 0) return group
+
+  await databases.createDocument(DATABASE_ID, COLLECTION.GROUP_MEMBERS, ID.unique(), {
+    groupId,
+    userId,
+    displayName,
+    avatarColor,
+    role: 'member',
+    joinedAt: new Date().toISOString(),
+  })
+
+  // Increment member count
+  await databases.updateDocument(DATABASE_ID, COLLECTION.GROUPS, groupId, {
+    memberCount: group.memberCount + 1,
+  })
+
+  return { ...group, memberCount: group.memberCount + 1 }
+}

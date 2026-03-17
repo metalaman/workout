@@ -52,3 +52,15 @@ export interface WorkoutShareData {
   prCount: number
   prExercises: string[]
 }
+
+export interface GroupInvitation {
+  $id: string
+  groupId: string
+  groupName: string
+  groupColor: string
+  invitedBy: string
+  inviterName: string
+  invitedUserId: string
+  status: 'pending' | 'accepted' | 'declined'
+  $createdAt: string
+}

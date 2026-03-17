@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Group, GroupMember, GroupMessage } from '@/types/social'
+import type { Group, GroupMember, GroupMessage, GroupInvitation } from '@/types/social'
 import * as db from '@/lib/database'
 
 interface SocialState {
@@ -7,6 +7,7 @@ interface SocialState {
   activeGroup: Group | null
   messages: GroupMessage[]
   members: GroupMember[]
+  invitations: GroupInvitation[]
   isLoading: boolean
   isMessagesLoading: boolean
 
@@ -20,6 +21,10 @@ interface SocialState {
   shareWorkout: (groupIds: string[], workoutData: string, text: string, userId: string, userName: string, avatarColor: string) => Promise<void>
   leaveGroup: (groupId: string, userId: string) => Promise<void>
   removeMember: (memberId: string, groupId: string) => Promise<void>
+  loadInvitations: (userId: string) => Promise<void>
+  sendInvitation: (groupId: string, groupName: string, groupColor: string, invitedBy: string, inviterName: string, invitedUserId: string) => Promise<void>
+  acceptInvitation: (invitation: GroupInvitation, userId: string, displayName: string, avatarColor: string) => Promise<void>
+  declineInvitation: (invitationId: string) => Promise<void>
 }
 
 export const useSocialStore = create<SocialState>((set, get) => ({
@@ -27,6 +32,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   activeGroup: null,
   messages: [],
   members: [],
+  invitations: [],
   isLoading: false,
   isMessagesLoading: false,
 
@@ -109,6 +115,43 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       await db.removeGroupMember(memberId, groupId)
       set((state) => ({
         members: state.members.filter((m) => m.$id !== memberId),
+      }))
+    } catch {
+      // silently fail
+    }
+  },
+
+  loadInvitations: async (userId: string) => {
+    try {
+      const invitations = await db.listPendingInvitations(userId)
+      set({ invitations: invitations as unknown as GroupInvitation[] })
+    } catch {
+      set({ invitations: [] })
+    }
+  },
+
+  sendInvitation: async (groupId, groupName, groupColor, invitedBy, inviterName, invitedUserId) => {
+    await db.sendGroupInvitation({ groupId, groupName, groupColor, invitedBy, inviterName, invitedUserId })
+  },
+
+  acceptInvitation: async (invitation, userId, displayName, avatarColor) => {
+    try {
+      const group = await db.joinGroupById(invitation.groupId, userId, displayName, avatarColor)
+      await db.respondToInvitation(invitation.$id, 'accepted')
+      set((state) => ({
+        invitations: state.invitations.filter((i) => i.$id !== invitation.$id),
+        groups: [group, ...state.groups],
+      }))
+    } catch {
+      // silently fail
+    }
+  },
+
+  declineInvitation: async (invitationId: string) => {
+    try {
+      await db.respondToInvitation(invitationId, 'declined')
+      set((state) => ({
+        invitations: state.invitations.filter((i) => i.$id !== invitationId),
       }))
     } catch {
       // silently fail

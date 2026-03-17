@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
+  Modal, TextInput, ActivityIndicator,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams } from 'expo-router'
@@ -14,9 +15,14 @@ import type { GroupMember, Group } from '@/types/social'
 export default function MembersScreen() {
   const router = useRouter()
   const { groupId, groupName } = useLocalSearchParams<{ groupId: string; groupName: string }>()
-  const { user } = useAuthStore()
-  const { members, loadMembers, removeMember } = useSocialStore()
+  const { user, profile } = useAuthStore()
+  const { members, loadMembers, removeMember, sendInvitation } = useSocialStore()
   const [group, setGroup] = useState<Group | null>(null)
+  const [inviteModalVisible, setInviteModalVisible] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searching, setSearching] = useState(false)
+  const [invitingUser, setInvitingUser] = useState<string | null>(null)
   const currentUserId = user?.$id
 
   useEffect(() => {
@@ -49,6 +55,47 @@ export default function MembersScreen() {
         },
       ]
     )
+  }
+
+  const handleSearch = useCallback(async (query: string) => {
+    setSearchQuery(query)
+    if (query.trim().length < 2) {
+      setSearchResults([])
+      return
+    }
+    setSearching(true)
+    try {
+      const results = await db.searchUsersByName(query.trim())
+      // Filter out existing members
+      const memberIds = new Set(members.map((m) => m.userId))
+      setSearchResults(results.filter((r) => !memberIds.has(r.userId)))
+    } catch {
+      setSearchResults([])
+    } finally {
+      setSearching(false)
+    }
+  }, [members])
+
+  const handleInviteUser = async (targetUser: any) => {
+    if (!user?.$id || !group || !groupId) return
+    setInvitingUser(targetUser.userId)
+    try {
+      await sendInvitation(
+        groupId,
+        group.name,
+        group.avatarColor || Colors.dark.accent,
+        user.$id,
+        profile?.displayName ?? user.name ?? 'Athlete',
+        targetUser.userId
+      )
+      Alert.alert('Invited!', `Invitation sent to ${targetUser.displayName}`)
+      // Remove from search results
+      setSearchResults((prev) => prev.filter((r) => r.userId !== targetUser.userId))
+    } catch {
+      Alert.alert('Error', 'Could not send invitation')
+    } finally {
+      setInvitingUser(null)
+    }
   }
 
   const renderMember = ({ item }: { item: GroupMember }) => (
@@ -90,7 +137,12 @@ export default function MembersScreen() {
           </Svg>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{groupName || 'Members'}</Text>
-        <View style={{ width: 36 }} />
+        <TouchableOpacity style={styles.backBtn} onPress={() => setInviteModalVisible(true)}>
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke={Colors.dark.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M8.5 11a4 4 0 100-8 4 4 0 000 8zM20 8v6m3-3h-6" stroke={Colors.dark.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </TouchableOpacity>
       </View>
 
       {/* Invite Code */}
@@ -128,6 +180,65 @@ export default function MembersScreen() {
           <Text style={styles.footerTip}>Long-press a member to remove them</Text>
         </View>
       )}
+
+      {/* Invite User Modal */}
+      <Modal visible={inviteModalVisible} transparent animationType="slide">
+        <View style={styles.inviteModalOverlay}>
+          <View style={styles.inviteModalContent}>
+            <View style={styles.inviteModalHeader}>
+              <Text style={styles.inviteModalTitle}>Invite to Group</Text>
+              <TouchableOpacity onPress={() => { setInviteModalVisible(false); setSearchQuery(''); setSearchResults([]) }}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <Path d="M18 6L6 18M6 6l12 12" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" />
+                </Svg>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={handleSearch}
+              placeholder="Search users by name..."
+              placeholderTextColor={Colors.dark.textMuted}
+              autoFocus
+            />
+
+            {searching && <ActivityIndicator style={{ marginTop: Spacing.xl }} color={Colors.dark.accent} />}
+
+            <FlatList
+              data={searchResults}
+              keyExtractor={(item) => item.$id}
+              style={styles.searchResultsList}
+              ListEmptyComponent={
+                searchQuery.length >= 2 && !searching ? (
+                  <Text style={styles.noResults}>No users found</Text>
+                ) : null
+              }
+              renderItem={({ item }) => (
+                <View style={styles.searchResultCard}>
+                  <View style={[styles.searchResultAvatar, { backgroundColor: item.avatarColor || Colors.dark.accent }]}>
+                    <Text style={styles.searchResultAvatarText}>
+                      {(item.displayName || '?').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={styles.searchResultName} numberOfLines={1}>{item.displayName}</Text>
+                  <TouchableOpacity
+                    style={styles.inviteBtn}
+                    onPress={() => handleInviteUser(item)}
+                    disabled={invitingUser === item.userId}
+                  >
+                    {invitingUser === item.userId ? (
+                      <ActivityIndicator size="small" color={Colors.dark.textOnAccent} />
+                    ) : (
+                      <Text style={styles.inviteBtnText}>Invite</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -282,5 +393,84 @@ const styles = StyleSheet.create({
   footerTip: {
     color: Colors.dark.textDark,
     fontSize: FontSize.sm,
+  },
+  // Invite modal
+  inviteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  inviteModalContent: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: Spacing.xxl,
+    maxHeight: '70%',
+  },
+  inviteModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
+  },
+  inviteModalTitle: {
+    color: Colors.dark.text,
+    fontSize: FontSize.title,
+    fontWeight: FontWeight.bold,
+  },
+  searchInput: {
+    backgroundColor: Colors.dark.surface,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    color: Colors.dark.text,
+    fontSize: FontSize.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  searchResultsList: {
+    marginTop: Spacing.lg,
+  },
+  noResults: {
+    color: Colors.dark.textMuted,
+    textAlign: 'center',
+    marginTop: Spacing.xxl,
+    fontSize: FontSize.lg,
+  },
+  searchResultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.lg,
+    gap: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  searchResultAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchResultAvatarText: {
+    color: Colors.dark.textOnAccent,
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+  },
+  searchResultName: {
+    flex: 1,
+    color: Colors.dark.text,
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.semibold,
+  },
+  inviteBtn: {
+    backgroundColor: Colors.dark.accent,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xxl,
+  },
+  inviteBtnText: {
+    color: Colors.dark.textOnAccent,
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.bold,
   },
 })

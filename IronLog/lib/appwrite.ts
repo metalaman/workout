@@ -25,6 +25,7 @@ export const COLLECTION = {
   GROUPS: 'groups',
   GROUP_MEMBERS: 'group_members',
   GROUP_MESSAGES: 'group_messages',
+  GROUP_INVITATIONS: 'group_invitations',
   BODY_STATS: 'body_stats',
   CARDIO_SESSIONS: 'cardio_sessions',
   PROGRESS_PHOTOS: 'progress_photos',
