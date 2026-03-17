@@ -27,7 +27,6 @@ export default function CreateProgramScreen() {
   const [name, setName] = useState('')
   const [selectedColor, setSelectedColor] = useState(PROGRAM_COLORS[0])
   const [daysPerWeek, setDaysPerWeek] = useState(3)
-  const [totalWeeks, setTotalWeeks] = useState('8')
   const [isCreating, setIsCreating] = useState(false)
 
   const handleCreate = async () => {
@@ -38,7 +37,7 @@ export default function CreateProgramScreen() {
       await createNewProgram(
         name.trim(),
         daysPerWeek,
-        parseInt(totalWeeks, 10) || 8,
+        0,
         user.$id,
         selectedColor,
       )
@@ -69,7 +68,7 @@ export default function CreateProgramScreen() {
 
         {/* Progress dots */}
         <View style={styles.progressRow}>
-          {[0, 1, 2].map((i) => (
+          {[0, 1].map((i) => (
             <View
               key={i}
               style={[
@@ -88,7 +87,7 @@ export default function CreateProgramScreen() {
         >
           {step === 0 && (
             <View style={styles.stepContainer}>
-              <Text style={styles.stepLabel}>STEP 1 OF 3</Text>
+              <Text style={styles.stepLabel}>STEP 1 OF 2</Text>
               <Text style={styles.stepTitle}>Name & Color</Text>
               <Text style={styles.stepSubtitle}>
                 Give it a memorable name and pick a color to identify it
@@ -131,7 +130,7 @@ export default function CreateProgramScreen() {
 
           {step === 1 && (
             <View style={styles.stepContainer}>
-              <Text style={styles.stepLabel}>STEP 2 OF 3</Text>
+              <Text style={styles.stepLabel}>STEP 2 OF 2</Text>
               <Text style={styles.stepTitle}>How many days per week?</Text>
               <Text style={styles.stepSubtitle}>
                 Select how many workout days you want each week
@@ -174,65 +173,6 @@ export default function CreateProgramScreen() {
               </View>
             </View>
           )}
-
-          {step === 2 && (
-            <View style={styles.stepContainer}>
-              <Text style={styles.stepLabel}>STEP 3 OF 3</Text>
-              <Text style={styles.stepTitle}>Program duration</Text>
-              <Text style={styles.stepSubtitle}>
-                How many weeks will you run this program? You can always change this later.
-              </Text>
-              <View style={styles.weeksRow}>
-                <TouchableOpacity
-                  style={styles.weekBtn}
-                  onPress={() => setTotalWeeks(String(Math.max(1, (parseInt(totalWeeks, 10) || 8) - 1)))}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.weekBtnText}>−</Text>
-                </TouchableOpacity>
-                <View style={styles.weeksInputWrap}>
-                  <TextInput
-                    style={[styles.weeksInput, { color: selectedColor }]}
-                    value={totalWeeks}
-                    onChangeText={setTotalWeeks}
-                    keyboardType="number-pad"
-                    maxLength={2}
-                    selectTextOnFocus
-                  />
-                  <Text style={styles.weeksLabel}>weeks</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.weekBtn}
-                  onPress={() => setTotalWeeks(String(Math.min(52, (parseInt(totalWeeks, 10) || 8) + 1)))}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.weekBtnText}>+</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.quickWeeks}>
-                {[4, 6, 8, 12, 16].map((w) => (
-                  <TouchableOpacity
-                    key={w}
-                    style={[
-                      styles.quickWeekPill,
-                      parseInt(totalWeeks, 10) === w && { backgroundColor: selectedColor + '15', borderColor: selectedColor + '40' },
-                    ]}
-                    onPress={() => setTotalWeeks(String(w))}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.quickWeekText,
-                        parseInt(totalWeeks, 10) === w && { color: selectedColor },
-                      ]}
-                    >
-                      {w}w
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
         </ScrollView>
 
         {/* Bottom buttons */}
@@ -247,7 +187,7 @@ export default function CreateProgramScreen() {
             </TouchableOpacity>
           )}
           <View style={styles.flex} />
-          {step < 2 ? (
+          {step < 1 ? (
             <TouchableOpacity
               style={[styles.nextBtn, !name.trim() && step === 0 && styles.nextBtnDisabled]}
               onPress={() => {

@@ -14,10 +14,10 @@ import { useCardioStore } from '@/stores/cardio-store'
 import { useWorkoutStore } from '@/stores/workout-store'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
 import { formatDate, getDayOfWeek, getRelativeTime, formatVolume, calculate1RM } from '@/lib/utils'
-import { createWorkoutSession } from '@/lib/database'
+import { createWorkoutSession, listProgramDays } from '@/lib/database'
 import { ExerciseIcon, MUSCLE_GROUP_COLORS } from '@/components/exercise-icon'
 import { StrengthScoreGauge, StrengthBalanceGauge } from '@/components/strength-gauges'
-import type { ActiveWorkoutExercise } from '@/types'
+import type { ActiveWorkoutExercise, Program, ProgramDay } from '@/types'
 
 const { width: SCREEN_W } = Dimensions.get('window')
 const CARD_W = SCREEN_W - 40
@@ -59,6 +59,13 @@ export default function HomeScreen() {
   const [weekOffset, setWeekOffset] = useState(0)
   const [showMonthPicker, setShowMonthPicker] = useState(false)
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null)
+
+  // Program/Day picker state for Strength Workout
+  const [showProgramPicker, setShowProgramPicker] = useState(false)
+  const [showDayPicker, setShowDayPicker] = useState(false)
+  const [selectedPickerProgram, setSelectedPickerProgram] = useState<Program | null>(null)
+  const [pickerDays, setPickerDays] = useState<ProgramDay[]>([])
+  const [loadingDays, setLoadingDays] = useState(false)
 
   useEffect(() => {
     if (user?.$id) {
@@ -244,8 +251,49 @@ export default function HomeScreen() {
 
   const handleStartStrength = async () => {
     setShowActivityPicker(false)
-    if (!user?.$id || !todaysDay) return
-    const activeExercises: ActiveWorkoutExercise[] = todaysDay.exercises.map((ex) => ({
+    if (!user?.$id) return
+
+    if (programs.length === 0) {
+      // No programs — prompt to create one
+      setTimeout(() => {
+        router.push('/(tabs)/program' as Href)
+      }, 200)
+      return
+    }
+
+    if (programs.length === 1) {
+      // Single program — go straight to day picker
+      await openDayPicker(programs[0])
+    } else {
+      // Multiple programs — show program picker first
+      setShowProgramPicker(true)
+    }
+  }
+
+  const openDayPicker = async (program: Program) => {
+    setSelectedPickerProgram(program)
+    setShowProgramPicker(false)
+    setLoadingDays(true)
+    setShowDayPicker(true)
+    try {
+      const loadedDays = await listProgramDays(program.$id)
+      setPickerDays(loadedDays)
+    } catch {
+      // Fallback to store days if this is the current program
+      if (currentProgram?.$id === program.$id) {
+        setPickerDays(days)
+      } else {
+        setPickerDays([])
+      }
+    }
+    setLoadingDays(false)
+  }
+
+  const handlePickDay = async (pickedDay: ProgramDay) => {
+    setShowDayPicker(false)
+    if (!user?.$id) return
+
+    const activeExercises: ActiveWorkoutExercise[] = pickedDay.exercises.map((ex) => ({
       exerciseId: ex.exerciseId,
       exerciseName: ex.exerciseName,
       sets: ex.sets.map((s, i) => ({
@@ -256,14 +304,14 @@ export default function HomeScreen() {
     }))
     try {
       const session = await createWorkoutSession({
-        userId: user.$id, programDayId: todaysDay.$id,
-        programDayName: todaysDay.name,
+        userId: user.$id, programDayId: pickedDay.$id,
+        programDayName: pickedDay.name,
         startedAt: new Date().toISOString(),
         completedAt: null, totalVolume: 0, duration: 0, notes: '',
       })
-      startWorkout({ sessionId: session.$id, programDayName: todaysDay.name, exercises: activeExercises })
+      startWorkout({ sessionId: session.$id, programDayName: pickedDay.name, exercises: activeExercises })
     } catch {
-      startWorkout({ sessionId: `local-${Date.now()}`, programDayName: todaysDay.name, exercises: activeExercises })
+      startWorkout({ sessionId: `local-${Date.now()}`, programDayName: pickedDay.name, exercises: activeExercises })
     }
     router.push('/workout/active' as Href)
   }
@@ -809,6 +857,122 @@ export default function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Program Picker Modal */}
+      <Modal
+        visible={showProgramPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowProgramPicker(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowProgramPicker(false)}>
+          <Pressable style={styles.bottomSheet} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Choose Program</Text>
+            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+              {programs.map((prog) => (
+                <TouchableOpacity
+                  key={prog.$id}
+                  style={styles.pickerRow}
+                  onPress={() => openDayPicker(prog)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.pickerColorDot, { backgroundColor: prog.color || Colors.dark.accent }]} />
+                  <View style={styles.pickerInfo}>
+                    <Text style={styles.pickerTitle}>{prog.name}</Text>
+                    <Text style={styles.pickerSub}>{prog.daysPerWeek} days/week</Text>
+                  </View>
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path d="M9 18l6-6-6-6" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <View style={{ height: 20 }} />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Day Picker Modal */}
+      <Modal
+        visible={showDayPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDayPicker(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowDayPicker(false)}>
+          <Pressable style={styles.bottomSheet} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.dayPickerHeader}>
+              {programs.length > 1 && (
+                <TouchableOpacity
+                  onPress={() => { setShowDayPicker(false); setShowProgramPicker(true) }}
+                  style={styles.dayPickerBack}
+                  activeOpacity={0.7}
+                >
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path d="M15 18l-6-6 6-6" stroke={Colors.dark.textSecondary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </TouchableOpacity>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetTitle}>Pick a Day</Text>
+                {selectedPickerProgram && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -4 }}>
+                    <View style={[styles.pickerColorDotSmall, { backgroundColor: selectedPickerProgram.color || Colors.dark.accent }]} />
+                    <Text style={styles.dayPickerProgramName}>{selectedPickerProgram.name}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            {loadingDays ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <Text style={{ color: Colors.dark.textMuted, fontSize: FontSize.lg }}>Loading...</Text>
+              </View>
+            ) : pickerDays.length === 0 ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <Text style={{ color: Colors.dark.textMuted, fontSize: FontSize.lg }}>No days found. Add exercises to your program first.</Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+                {pickerDays.map((d) => (
+                  <TouchableOpacity
+                    key={d.$id}
+                    style={styles.pickerRow}
+                    onPress={() => handlePickDay(d)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.pickerDayIcon, { backgroundColor: (selectedPickerProgram?.color || Colors.dark.accent) + '15' }]}>
+                      {d.exercises.length > 0 ? (
+                        <ExerciseIcon
+                          exerciseName={d.exercises[0].exerciseName}
+                          size={28}
+                          color={selectedPickerProgram?.color || Colors.dark.accent}
+                        />
+                      ) : (
+                        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                          <Path d="M6 5v14M18 5v14M6 12h12M4 7h4M16 7h4M4 17h4M16 17h4" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" />
+                        </Svg>
+                      )}
+                    </View>
+                    <View style={styles.pickerInfo}>
+                      <Text style={styles.pickerTitle}>{d.name}</Text>
+                      <Text style={styles.pickerSub}>
+                        {d.exercises.length} exercise{d.exercises.length !== 1 ? 's' : ''}
+                        {d.exercises.length > 0 ? ` · ${d.exercises.slice(0, 3).map(e => e.exerciseName.split(' ')[0]).join(', ')}` : ''}
+                      </Text>
+                    </View>
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Path d="M9 18l6-6-6-6" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+            <View style={{ height: 20 }} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -927,6 +1091,64 @@ const styles = StyleSheet.create({
   activityInfo: { flex: 1 },
   activityTitle: { color: Colors.dark.text, fontSize: FontSize.xxl, fontWeight: FontWeight.semibold },
   activitySub: { color: Colors.dark.textMuted, fontSize: FontSize.md, marginTop: 2 },
+
+  // Program/Day picker
+  pickerRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+    gap: 12,
+  },
+  pickerColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  pickerColorDotSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  pickerInfo: {
+    flex: 1,
+  },
+  pickerTitle: {
+    color: Colors.dark.text,
+    fontSize: FontSize.xxl,
+    fontWeight: FontWeight.semibold,
+  },
+  pickerSub: {
+    color: Colors.dark.textMuted,
+    fontSize: FontSize.md,
+    marginTop: 2,
+  },
+  pickerDayIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  dayPickerHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    marginBottom: Spacing.xl,
+  },
+  dayPickerBack: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.surface,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  dayPickerProgramName: {
+    color: Colors.dark.textSecondary,
+    fontSize: FontSize.md,
+  },
 
   // Month picker
   monthPickerSheet: {
