@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { WorkoutSession, PersonalRecord } from '@/types'
+import type { WorkoutSession, PersonalRecord, ActiveWorkoutExercise } from '@/types'
 import * as db from '@/lib/database'
 
 interface SessionState {
@@ -8,13 +8,14 @@ interface SessionState {
   personalRecords: PersonalRecord[]
   isLoading: boolean
   lastCompletedSession: WorkoutSession | null
+  lastCompletedExercises: ActiveWorkoutExercise[]
   newPRs: PersonalRecord[]
 
   loadRecent: (userId: string) => Promise<void>
   loadAll: (userId: string) => Promise<void>
   loadPRs: (userId: string) => Promise<void>
   addSession: (session: WorkoutSession) => void
-  setLastCompleted: (session: WorkoutSession | null) => void
+  setLastCompleted: (session: WorkoutSession | null, exercises?: ActiveWorkoutExercise[]) => void
   setNewPRs: (prs: PersonalRecord[]) => void
   clearCompletionData: () => void
 }
@@ -25,6 +26,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   personalRecords: [],
   isLoading: false,
   lastCompletedSession: null,
+  lastCompletedExercises: [],
   newPRs: [],
 
   loadRecent: async (userId: string) => {
@@ -62,7 +64,8 @@ export const useSessionStore = create<SessionState>((set) => ({
     }))
   },
 
-  setLastCompleted: (session: WorkoutSession | null) => set({ lastCompletedSession: session }),
+  setLastCompleted: (session: WorkoutSession | null, exercises?: ActiveWorkoutExercise[]) =>
+    set({ lastCompletedSession: session, lastCompletedExercises: exercises ?? [] }),
   setNewPRs: (prs: PersonalRecord[]) => set({ newPRs: prs }),
-  clearCompletionData: () => set({ lastCompletedSession: null, newPRs: [] }),
+  clearCompletionData: () => set({ lastCompletedSession: null, lastCompletedExercises: [], newPRs: [] }),
 }))

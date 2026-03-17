@@ -171,6 +171,8 @@ export default function ActiveWorkoutScreen() {
         text: 'End',
         style: 'destructive',
         onPress: async () => {
+          // Capture exercises before endWorkout resets them
+          const completedExercises = [...exercises]
           const { totalVolume, duration } = endWorkout()
           const completedSession = {
             $id: sessionId ?? `local-${Date.now()}`,
@@ -192,7 +194,7 @@ export default function ActiveWorkoutScreen() {
                 duration,
               })
               const newPRs: PersonalRecord[] = []
-              for (const ex of exercises) {
+              for (const ex of completedExercises) {
                 for (const s of ex.sets) {
                   if (s.isCompleted && s.weight > 0) {
                     try {
@@ -215,7 +217,7 @@ export default function ActiveWorkoutScreen() {
             } catch { /* continue */ }
           }
 
-          setLastCompleted(completedSession)
+          setLastCompleted(completedSession, completedExercises)
           addSession(completedSession)
           if (user?.$id) loadRecent(user.$id)
           router.replace('/workout/summary' as Href)
