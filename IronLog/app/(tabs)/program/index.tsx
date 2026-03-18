@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Dimensions, Alert, Animated, PanResponder, Switch,
+  TextInput, Dimensions, Alert,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, Href } from 'expo-router'
@@ -15,10 +15,8 @@ import { ExerciseIcon, MUSCLE_GROUP_COLORS } from '@/components/exercise-icon'
 import type { ActiveWorkoutExercise } from '@/types'
 import Svg, { Path } from 'react-native-svg'
 
-const TABS = ['Exercises', 'Overview', 'Notes', 'Settings'] as const
+const TABS = ['Exercises', 'Overview', 'Notes'] as const
 type TabName = typeof TABS[number]
-
-const CARD_HEIGHT = 80
 
 function guessMuscleGroup(name: string): string {
   const n = name.toLowerCase()
@@ -31,45 +29,12 @@ function guessMuscleGroup(name: string): string {
   return 'Chest'
 }
 
-// ─── Draggable Exercise Card ───────────────────────────────────────────
-function DraggableExerciseCard({
+// ─── Exercise Card ───────────────────────────────────────────
+function ExerciseCard({
   ex, exIdx, exerciseCount, activeDayIndex, muscleColor, setsText,
-  hasDropSets, isFirstSS, inSS, menuExIdx, setMenuExIdx,
+  hasDropSets, isFirstSS, menuExIdx, setMenuExIdx,
   moveExercise, updateDayExercises, saveDayToBackend, exercises, router,
 }: any) {
-  const pan = useRef(new Animated.ValueXY()).current
-  const [isDragging, setIsDragging] = useState(false)
-  const dragScale = useRef(new Animated.Value(1)).current
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
-      onPanResponderGrant: () => {
-        setIsDragging(true)
-        Animated.spring(dragScale, { toValue: 1.03, useNativeDriver: true }).start()
-      },
-      onPanResponderMove: Animated.event([null, { dy: pan.y }], { useNativeDriver: false }),
-      onPanResponderRelease: (_, gesture) => {
-        setIsDragging(false)
-        Animated.spring(dragScale, { toValue: 1, useNativeDriver: true }).start()
-        const movedBy = Math.round(gesture.dy / CARD_HEIGHT)
-        if (movedBy !== 0) {
-          const targetIdx = Math.max(0, Math.min(exerciseCount - 1, exIdx + movedBy))
-          if (targetIdx !== exIdx) {
-            // Move step by step
-            const dir = movedBy > 0 ? 'down' : 'up'
-            const steps = Math.abs(movedBy)
-            for (let s = 0; s < steps; s++) {
-              moveExercise(activeDayIndex, movedBy > 0 ? exIdx + s : exIdx - s, dir)
-            }
-          }
-        }
-        Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true }).start()
-      },
-    })
-  ).current
-
   return (
     <View key={exIdx}>
       {isFirstSS && (
@@ -79,26 +44,8 @@ function DraggableExerciseCard({
           <View style={[styles.ssLine, { backgroundColor: Colors.dark.accent }]} />
         </View>
       )}
-      <Animated.View
-        style={[
-          styles.exCard,
-          { borderColor: Colors.dark.border },
-          isDragging && styles.exCardDragging,
-          {
-            transform: [
-              { translateY: pan.y },
-              { scale: dragScale },
-            ],
-            zIndex: isDragging ? 100 : 1,
-          },
-        ]}
-      >
+      <View style={[styles.exCard, { borderColor: Colors.dark.border }]}>
         <View style={styles.exRow}>
-          {/* Drag handle */}
-          <View {...panResponder.panHandlers} style={styles.dragHandle}>
-            <Text style={styles.dragIcon}>⠿</Text>
-          </View>
-          {/* Exercise icon */}
           <View style={[styles.exIconWrap, { backgroundColor: `${muscleColor}12` }]}>
             <ExerciseIcon exerciseName={ex.exerciseName} size={50} color={muscleColor} />
           </View>
@@ -132,6 +79,22 @@ function DraggableExerciseCard({
 
         {menuExIdx === exIdx && (
           <View style={styles.contextMenu}>
+            {exIdx > 0 && (
+              <TouchableOpacity style={styles.contextItem} onPress={() => {
+                moveExercise(activeDayIndex, exIdx, 'up')
+                setMenuExIdx(null)
+              }}>
+                <Text style={styles.contextText}>↑ Move Up</Text>
+              </TouchableOpacity>
+            )}
+            {exIdx < exerciseCount - 1 && (
+              <TouchableOpacity style={styles.contextItem} onPress={() => {
+                moveExercise(activeDayIndex, exIdx, 'down')
+                setMenuExIdx(null)
+              }}>
+                <Text style={styles.contextText}>↓ Move Down</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.contextItem} onPress={() => {
               setMenuExIdx(null)
               router.push(`/(tabs)/program/pick-exercise?dayIndex=${activeDayIndex}&swapIndex=${exIdx}` as Href)
@@ -149,7 +112,7 @@ function DraggableExerciseCard({
             </TouchableOpacity>
           </View>
         )}
-      </Animated.View>
+      </View>
     </View>
   )
 }
@@ -169,18 +132,6 @@ export default function ProgramScreen() {
   const [activeTab, setActiveTab] = useState<TabName>('Exercises')
   const [menuExIdx, setMenuExIdx] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
-  const [isPublic, setIsPublic] = useState((currentProgram as any)?.isPublic ?? false)
-
-  const handleTogglePublic = async () => {
-    if (!currentProgram) return
-    const newVal = !isPublic
-    setIsPublic(newVal)
-    try {
-      await updateProgram(currentProgram.$id, { isPublic: newVal })
-    } catch {
-      setIsPublic(!newVal) // revert on failure
-    }
-  }
 
   useEffect(() => {
     if (user?.$id) loadPrograms(user.$id)
@@ -426,7 +377,7 @@ export default function ProgramScreen() {
                 const setsText = `${ex.sets.length} sets × ${ex.sets[0]?.reps ?? 8} reps`
 
                 return (
-                  <DraggableExerciseCard
+                  <ExerciseCard
                     key={exIdx}
                     ex={ex}
                     exIdx={exIdx}
@@ -436,7 +387,6 @@ export default function ProgramScreen() {
                     setsText={setsText}
                     hasDropSets={hasDropSets}
                     isFirstSS={isFirstInSuperset(exIdx)}
-                    inSS={isInSuperset(exIdx)}
                     menuExIdx={menuExIdx}
                     setMenuExIdx={setMenuExIdx}
                     moveExercise={moveExercise}
@@ -506,24 +456,6 @@ export default function ProgramScreen() {
               multiline
               textAlignVertical="top"
             />
-          </View>
-        )}
-
-        {activeTab === 'Settings' && (
-          <View style={styles.settingsContent}>
-            <Text style={styles.settingsSectionTitle}>VISIBILITY</Text>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Public Program</Text>
-                <Text style={styles.settingDesc}>Allow other users to find and clone this program</Text>
-              </View>
-              <Switch
-                value={isPublic}
-                onValueChange={handleTogglePublic}
-                trackColor={{ false: Colors.dark.surfaceLight, true: Colors.dark.accent }}
-                thumbColor={Colors.dark.text}
-              />
-            </View>
           </View>
         )}
 
@@ -682,16 +614,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg,
     borderWidth: 1, marginBottom: Spacing.md, padding: Spacing.xl,
   },
-  exCardDragging: {
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4, shadowRadius: 16, elevation: 12,
-    borderColor: Colors.dark.accentBorder,
-  },
   exRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  dragHandle: {
-    width: 24, height: 40, alignItems: 'center', justifyContent: 'center',
-  },
-  dragIcon: { fontSize: 18, color: Colors.dark.textMuted },
   exIconWrap: {
     width: 64, height: 64, borderRadius: BorderRadius.lg,
     alignItems: 'center', justifyContent: 'center',
@@ -774,19 +697,4 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
   },
   startBtnText: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.dark.textOnAccent },
-
-  // Settings tab
-  settingsContent: { paddingTop: Spacing.xl },
-  settingsSectionTitle: {
-    fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.dark.textMuted,
-    letterSpacing: 1.5, marginBottom: Spacing.lg,
-  },
-  settingRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg,
-    padding: Spacing.xl, borderWidth: 1, borderColor: Colors.dark.border,
-  },
-  settingInfo: { flex: 1, marginRight: Spacing.xl },
-  settingLabel: { fontSize: FontSize.xxl, fontWeight: FontWeight.semibold, color: Colors.dark.text },
-  settingDesc: { fontSize: FontSize.base, color: Colors.dark.textSecondary, marginTop: Spacing.xs },
 })

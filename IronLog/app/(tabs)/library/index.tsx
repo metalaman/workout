@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   View,
   Text,
@@ -20,6 +20,8 @@ import { useFilterStore } from '@/stores/filter-store'
 import { ExerciseIcon } from '@/components/exercise-icon'
 import type { MuscleGroup, Equipment } from '@/types'
 import Svg, { Path } from 'react-native-svg'
+import { useAuthStore } from '@/stores/auth-store'
+import { createExercise, listCustomExercises } from '@/lib/database'
 
 const CATEGORIES: ('All' | MuscleGroup)[] = ['All', 'Chest', 'Back', 'Legs', 'Arms', 'Shoulders', 'Core']
 const MUSCLE_GROUPS: MuscleGroup[] = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core']
@@ -41,10 +43,29 @@ export default function LibraryScreen() {
   const [selectedCategory, setSelectedCategory] = useState<'All' | MuscleGroup>('All')
   const { muscleGroups, equipment, difficulty } = useFilterStore()
   const router = useRouter()
+  const { user } = useAuthStore()
 
   // Custom exercises state
   const [customExercises, setCustomExercises] = useState<CustomExercise[]>([])
   const [showCreateModal, setShowCreateModal] = useState(false)
+
+  // Load custom exercises from Appwrite on mount
+  useEffect(() => {
+    if (user?.$id) {
+      listCustomExercises(user.$id).then((docs) => {
+        setCustomExercises(docs.map((d: any) => ({
+          name: d.name,
+          muscleGroup: d.muscleGroup,
+          secondaryMuscles: d.secondaryMuscles || [],
+          equipment: d.equipment,
+          difficulty: d.difficulty || 'Intermediate',
+          icon: d.icon || '⭐',
+          instructions: d.instructions || '',
+          isCustom: true,
+        })))
+      }).catch(() => {})
+    }
+  }, [user?.$id])
 
   // Form state
   const [exerciseName, setExerciseName] = useState('')
@@ -59,7 +80,7 @@ export default function LibraryScreen() {
     setSelectedEquipment('Barbell')
   }, [])
 
-  const handleCreateExercise = useCallback(() => {
+  const handleCreateExercise = useCallback(async () => {
     const trimmed = exerciseName.trim()
     if (!trimmed) {
       Alert.alert('Missing Name', 'Please enter an exercise name.')
@@ -80,7 +101,26 @@ export default function LibraryScreen() {
     setCustomExercises((prev) => [...prev, newExercise])
     resetForm()
     setShowCreateModal(false)
-  }, [exerciseName, primaryMuscle, selectedSecondary, selectedEquipment, resetForm])
+
+    // Save to Appwrite
+    if (user?.$id) {
+      try {
+        await createExercise({
+          name: trimmed,
+          muscleGroup: primaryMuscle,
+          secondaryMuscles: selectedSecondary,
+          equipment: selectedEquipment,
+          difficulty: 'Intermediate',
+          icon: '⭐',
+          instructions: '',
+          userId: user.$id,
+          isCustom: true,
+        })
+      } catch (e) {
+        console.warn('Failed to save custom exercise:', e)
+      }
+    }
+  }, [exerciseName, primaryMuscle, selectedSecondary, selectedEquipment, resetForm, user?.$id])
 
   const toggleSecondaryMuscle = useCallback((mg: MuscleGroup) => {
     setSelectedSecondary((prev) =>
