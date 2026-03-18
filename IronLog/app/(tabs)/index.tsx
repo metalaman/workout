@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
-  Dimensions, Pressable, Animated,
+  Pressable, Animated,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -13,26 +13,15 @@ import { useSessionStore } from '@/stores/session-store'
 import { useCardioStore } from '@/stores/cardio-store'
 import { useWorkoutStore } from '@/stores/workout-store'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
-import { formatDate, getDayOfWeek, getRelativeTime, formatVolume, calculate1RM } from '@/lib/utils'
+import { formatDate, getDayOfWeek, getRelativeTime, formatVolume, calculate1RM, guessMuscleGroup } from '@/lib/utils'
 import { createWorkoutSession, listProgramDays } from '@/lib/database'
 import { ExerciseIcon, MUSCLE_GROUP_COLORS } from '@/components/exercise-icon'
 import { StrengthScoreGauge, StrengthBalanceGauge } from '@/components/strength-gauges'
 import type { ActiveWorkoutExercise, Program, ProgramDay } from '@/types'
 
-const { width: SCREEN_W } = Dimensions.get('window')
-const CARD_W = SCREEN_W - 40
+
 const DAYS_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
-function guessMuscleGroup(name: string): string {
-  const n = name.toLowerCase()
-  if (n.includes('bench') || n.includes('chest') || n.includes('fly') || n.includes('dip')) return 'Chest'
-  if (n.includes('squat') || n.includes('leg') || n.includes('lunge') || n.includes('calf') || n.includes('deadlift') || n.includes('hip')) return 'Legs'
-  if (n.includes('row') || n.includes('pull') || n.includes('lat') || n.includes('back') || n.includes('chin')) return 'Back'
-  if (n.includes('shoulder') || n.includes('press') || n.includes('ohp') || n.includes('lateral') || n.includes('raise') || n.includes('delt')) return 'Shoulders'
-  if (n.includes('curl') || n.includes('bicep') || n.includes('tricep') || n.includes('extension') || n.includes('skull') || n.includes('hammer') || n.includes('pushdown')) return 'Arms'
-  if (n.includes('plank') || n.includes('crunch') || n.includes('ab') || n.includes('core')) return 'Core'
-  return 'Chest'
-}
 
 function getTrainingCategory(name: string): 'push' | 'pull' | 'legs' | 'core' {
   const mg = guessMuscleGroup(name)
@@ -66,6 +55,7 @@ export default function HomeScreen() {
   const [selectedPickerProgram, setSelectedPickerProgram] = useState<Program | null>(null)
   const [pickerDays, setPickerDays] = useState<ProgramDay[]>([])
   const [loadingDays, setLoadingDays] = useState(false)
+  const [metricCard, setMetricCard] = useState<0 | 1>(0)
 
   useEffect(() => {
     if (user?.$id) {
@@ -397,25 +387,26 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Metrics Carousel */}
-        <View style={{ overflow: 'hidden', width: '100%' }}>
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={CARD_W + 10}
-          decelerationRate="fast"
-          contentContainerStyle={styles.carouselContent}
-          style={styles.carousel}
-        >
-          <View style={[styles.carouselCard, { width: CARD_W }]}>
-            <Text style={styles.carouselLabel}>STRENGTH SCORE</Text>
-            <StrengthScoreGauge score={strengthScore.score} delta={strengthScore.delta} />
+        {/* Metrics Card (tap dots to switch) */}
+        <View style={styles.carouselSection}>
+          <View style={styles.carouselCard}>
+            {metricCard === 0 ? (
+              <>
+                <Text style={styles.carouselLabel}>STRENGTH SCORE</Text>
+                <StrengthScoreGauge score={strengthScore.score} delta={strengthScore.delta} />
+              </>
+            ) : (
+              <StrengthBalanceGauge {...strengthBalance} />
+            )}
           </View>
-          <View style={[styles.carouselCard, { width: CARD_W }]}>
-            <StrengthBalanceGauge {...strengthBalance} />
+          <View style={styles.dotRow}>
+            <TouchableOpacity onPress={() => setMetricCard(0)} hitSlop={8}>
+              <View style={[styles.dot, metricCard === 0 && styles.dotActive]} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setMetricCard(1)} hitSlop={8}>
+              <View style={[styles.dot, metricCard === 1 && styles.dotActive]} />
+            </TouchableOpacity>
           </View>
-        </ScrollView>
         </View>
 
         {/* Weekly Calendar — swipeable with calendar picker */}
@@ -991,8 +982,7 @@ const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontWeight: FontWeight.extrabold, fontSize: FontSize.xl, color: Colors.dark.textOnAccent },
 
-  carousel: { marginBottom: Spacing.sm, overflow: 'hidden' },
-  carouselContent: { paddingHorizontal: Spacing.xxl, gap: 10 },
+  carouselSection: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.md },
   carouselCard: {
     backgroundColor: '#1a1a1a', borderRadius: BorderRadius.xxl,
     borderWidth: 1, borderColor: Colors.dark.border, padding: Spacing.lg,
@@ -1002,6 +992,9 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.bold,
     letterSpacing: 1.5, marginBottom: Spacing.sm,
   },
+  dotRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: Spacing.md },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.dark.textMuted },
+  dotActive: { backgroundColor: Colors.dark.accent, width: 18 },
 
   weekSection: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.lg },
   weekHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },

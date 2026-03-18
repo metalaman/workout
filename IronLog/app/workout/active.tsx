@@ -7,7 +7,7 @@ import { useWorkoutStore } from '@/stores/workout-store'
 import { useSessionStore } from '@/stores/session-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
-import { formatDuration, calculate1RM } from '@/lib/utils'
+import { formatDuration, calculate1RM, guessMuscleGroup } from '@/lib/utils'
 import { ExerciseIcon, MUSCLE_GROUP_COLORS } from '@/components/exercise-icon'
 import * as db from '@/lib/database'
 import type { PersonalRecord } from '@/types'
@@ -16,16 +16,6 @@ import Svg, { Path } from 'react-native-svg'
 const TABS = ['Track', 'Overview', 'History', 'Notes'] as const
 type TabName = typeof TABS[number]
 
-function guessMuscleGroup(name: string): string {
-  const n = name.toLowerCase()
-  if (n.includes('bench') || n.includes('chest') || n.includes('fly') || n.includes('dip')) return 'Chest'
-  if (n.includes('squat') || n.includes('leg') || n.includes('lunge') || n.includes('calf') || n.includes('deadlift') || n.includes('hip')) return 'Legs'
-  if (n.includes('row') || n.includes('pull') || n.includes('lat') || n.includes('back') || n.includes('chin')) return 'Back'
-  if (n.includes('shoulder') || n.includes('press') || n.includes('ohp') || n.includes('lateral') || n.includes('raise') || n.includes('delt')) return 'Shoulders'
-  if (n.includes('curl') || n.includes('bicep') || n.includes('tricep') || n.includes('extension') || n.includes('skull') || n.includes('hammer') || n.includes('pushdown')) return 'Arms'
-  if (n.includes('plank') || n.includes('crunch') || n.includes('ab') || n.includes('core')) return 'Core'
-  return 'Chest'
-}
 
 export default function ActiveWorkoutScreen() {
   const router = useRouter()

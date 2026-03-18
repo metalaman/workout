@@ -12,17 +12,8 @@ import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants
 import { ExerciseIcon, MUSCLE_GROUP_COLORS, EXERCISES } from '@/components/exercise-icon'
 import * as db from '@/lib/database'
 import type { ActiveWorkoutExercise } from '@/types'
+import { guessMuscleGroup } from '@/lib/utils'
 
-function guessMuscleGroup(name: string): string {
-  const n = name.toLowerCase()
-  if (n.includes('bench') || n.includes('chest') || n.includes('fly') || n.includes('dip')) return 'Chest'
-  if (n.includes('squat') || n.includes('leg') || n.includes('lunge') || n.includes('calf') || n.includes('deadlift') || n.includes('hip')) return 'Legs'
-  if (n.includes('row') || n.includes('pull') || n.includes('lat') || n.includes('back') || n.includes('chin')) return 'Back'
-  if (n.includes('shoulder') || n.includes('press') || n.includes('ohp') || n.includes('lateral') || n.includes('raise') || n.includes('delt')) return 'Shoulders'
-  if (n.includes('curl') || n.includes('bicep') || n.includes('tricep') || n.includes('extension') || n.includes('skull') || n.includes('hammer') || n.includes('pushdown')) return 'Arms'
-  if (n.includes('plank') || n.includes('crunch') || n.includes('ab') || n.includes('core')) return 'Core'
-  return 'Chest'
-}
 
 interface SelectedExercise {
   id: string

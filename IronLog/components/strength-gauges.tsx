@@ -44,7 +44,7 @@ export const StrengthScoreGauge = React.memo(function StrengthScoreGauge({ score
 
   return (
     <View style={gaugeStyles.container}>
-      <Svg width={200} height={120} viewBox="0 0 200 130">
+      <Svg width={200} height={110} viewBox="0 10 200 120">
         {/* Background arc */}
         <Path
           d={getArcPath(cx, cy, r, startAngle, endAngle)}
@@ -155,7 +155,7 @@ export const StrengthBalanceGauge = React.memo(function StrengthBalanceGauge({ p
 const gaugeStyles = StyleSheet.create({
   container: { alignItems: 'center', paddingTop: 8 },
   scoreOverlay: {
-    position: 'absolute', top: 50, left: 0, right: 0, alignItems: 'center',
+    position: 'absolute', top: 40, left: 0, right: 0, alignItems: 'center',
   },
   score: { fontSize: 36, fontWeight: FontWeight.black },
   levelBadge: {

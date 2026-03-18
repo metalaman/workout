@@ -10,20 +10,10 @@ import { ExerciseIcon, MUSCLE_GROUP_COLORS } from '@/components/exercise-icon'
 import { useSessionStore } from '@/stores/session-store'
 import { listWorkoutSets, updateWorkoutSet, createWorkoutSet } from '@/lib/database'
 import { useAuthStore } from '@/stores/auth-store'
-import { formatDuration } from '@/lib/utils'
+import { formatDuration, guessMuscleGroup } from '@/lib/utils'
 import Svg, { Path } from 'react-native-svg'
 import type { WorkoutSet } from '@/types'
 
-function guessMuscleGroup(name: string): string {
-  const n = name.toLowerCase()
-  if (n.includes('bench') || n.includes('chest') || n.includes('fly') || n.includes('dip') || n.includes('push up')) return 'Chest'
-  if (n.includes('squat') || n.includes('leg') || n.includes('lunge') || n.includes('calf') || n.includes('deadlift') || n.includes('hip') || n.includes('glute') || n.includes('hamstring')) return 'Legs'
-  if (n.includes('row') || n.includes('pull') || n.includes('lat') || n.includes('back') || n.includes('chin')) return 'Back'
-  if (n.includes('shoulder') || n.includes('press') || n.includes('ohp') || n.includes('lateral') || n.includes('raise') || n.includes('delt') || n.includes('military')) return 'Shoulders'
-  if (n.includes('curl') || n.includes('bicep') || n.includes('tricep') || n.includes('extension') || n.includes('skull') || n.includes('hammer') || n.includes('pushdown')) return 'Arms'
-  if (n.includes('plank') || n.includes('crunch') || n.includes('ab') || n.includes('core')) return 'Core'
-  return 'Chest'
-}
 
 interface GroupedExercise {
   exerciseId: string
