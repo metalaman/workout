@@ -29,7 +29,7 @@ interface NutritionState {
   /** Update existing profile */
   updateProfile: (data: Partial<NutritionProfile>) => Promise<void>
   /** Load food logs for a specific date */
-  loadDayLogs: (userId: string, date?: string) => Promise<void>
+  loadDayLogs: (userId: string, date?: string, silent?: boolean) => Promise<void>
   /** Load food logs for the current week */
   loadWeekLogs: (userId: string, weekOffset?: number) => Promise<void>
   /** Log a food entry */
@@ -89,9 +89,9 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
     }
   },
 
-  loadDayLogs: async (userId: string, date?: string) => {
+  loadDayLogs: async (userId: string, date?: string, silent = false) => {
     const targetDate = date ?? get().selectedDate
-    set({ isLoading: true })
+    if (!silent) set({ isLoading: true })
     try {
       const logs = await db.listFoodLogs(userId, targetDate)
       set({
@@ -164,12 +164,12 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
   },
 
   setSelectedDate: async (userId: string, date: string) => {
-    set({ selectedDate: date })
     const { weekLogs } = get()
     if (weekLogs[date]) {
-      set({ todayLogs: weekLogs[date] })
+      set({ selectedDate: date, todayLogs: weekLogs[date] })
     } else {
-      await get().loadDayLogs(userId, date)
+      set({ selectedDate: date })
+      await get().loadDayLogs(userId, date, true)
     }
   },
 

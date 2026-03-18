@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, SafeAreaView,
   TouchableOpacity, TextInput, Alert, ActivityIndicator,
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
 import Svg, { Polyline, Circle, Line, Text as SvgText, Path } from 'react-native-svg'
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme'
 import { useNutritionStore } from '@/stores/nutrition-store'
@@ -50,6 +50,14 @@ export default function NutritionDashboard() {
       loadWeekLogs(user.$id, weekOffset)
     }
   }, [user, profile?.onboardingCompleted, weekOffset])
+
+  // Refresh body stats whenever this tab comes into focus so weight logs
+  // added in the Body Stats screen are immediately reflected here
+  useFocusEffect(
+    useCallback(() => {
+      if (user) loadStats(user.$id)
+    }, [user])
+  )
 
   const handleSelectDate = useCallback((date: string) => {
     if (user) setSelectedDate(user.$id, date)
@@ -141,6 +149,17 @@ export default function NutritionDashboard() {
     setShowOnboarding(true)
   }
 
+  const handleRetakeAssessmentPrompt = () => {
+    Alert.alert(
+      'Retake Assessment',
+      'Do you want to retake your nutrition assessment?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Retake', onPress: handleRetakeQuiz },
+      ]
+    )
+  }
+
   const summary = computeDailySummary(selectedDate, todayLogs)
   const mealGroups = groupByMeal(todayLogs)
   const isToday = selectedDate === getDateString()
@@ -171,16 +190,6 @@ export default function NutritionDashboard() {
               })}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.settingsBtn}
-            onPress={handleRetakeQuiz}
-            activeOpacity={0.7}
-          >
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path d="M12 15a3 3 0 100-6 3 3 0 000 6z" stroke={Colors.dark.textSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-              <Path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke={Colors.dark.textSecondary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-          </TouchableOpacity>
         </View>
 
         {/* Calorie Ring */}
@@ -276,6 +285,9 @@ export default function NutritionDashboard() {
         {/* Bottom padding */}
         <View style={{ height: 40 }} />
       </ScrollView>
+      <TouchableOpacity style={styles.fab} onPress={handleRetakeAssessmentPrompt} activeOpacity={0.8}>
+        <Text style={styles.fabText}>?</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   )
 }
@@ -398,13 +410,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xxl,
   },
-  settingsBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.dark.surface,
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.dark.accentSurface,
+    borderWidth: 1,
+    borderColor: Colors.dark.accentBorder,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  fabText: {
+    color: Colors.dark.accent,
+    fontSize: FontSize.xxl,
+    fontWeight: FontWeight.bold,
+    lineHeight: 28,
   },
   title: {
     color: Colors.dark.text,
