@@ -4,6 +4,7 @@ import { View, Text, StyleSheet } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import { HapticTab } from '@/components/haptic-tab'
 import { Colors, FontSize, FontWeight } from '@/constants/theme'
+import type { Href } from 'expo-router'
 
 const TabIcon = React.memo(function TabIcon({ icon, label, focused }: { icon: React.ReactNode; label: string; focused: boolean }) {
   return (
@@ -35,27 +36,21 @@ const HomeIcon = React.memo(() => (
   </Svg>
 ))
 
-const LibraryIcon = React.memo(() => (
-  <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none">
-    <Path d="M4 6h16M4 10h16M4 14h10M4 18h7" stroke={sc} strokeWidth={1.8} strokeLinecap="round" />
-  </Svg>
-))
-
 const PlanIcon = React.memo(() => (
   <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none">
     <Path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 104 0M9 5a2 2 0 014 0m-5 9l2 2 4-4" stroke={sc} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 ))
 
-const StatsIcon = React.memo(() => (
-  <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none">
-    <Path d="M16 8v8m-4-5v5m-4-2v2m-2 4h16a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z" stroke={sc} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-))
-
 const FeedIcon = React.memo(() => (
   <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none">
     <Path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm13 10v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75" stroke={sc} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+))
+
+const ProfileIcon = React.memo(() => (
+  <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none">
+    <Path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" stroke={sc} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 ))
 
@@ -97,24 +92,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="library"
-        options={{
-          lazy: true,
-          tabBarIcon: ({ focused }) => <TabIcon icon={<LibraryIcon />} label="Library" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
         name="program"
         options={{
           lazy: true,
-          tabBarIcon: ({ focused }) => <TabIcon icon={<PlanIcon />} label="Plan" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="progress"
-        options={{
-          lazy: true,
-          tabBarIcon: ({ focused }) => <TabIcon icon={<StatsIcon />} label="Stats" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={<PlanIcon />} label="Plans" focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -122,6 +103,25 @@ export default function TabLayout() {
         options={{
           lazy: true,
           tabBarIcon: ({ focused }) => <TabIcon icon={<FeedIcon />} label="Groups" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          lazy: true,
+          tabBarIcon: ({ focused }) => <TabIcon icon={<ProfileIcon />} label="Profile" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="library"
+        options={{
+          href: null as unknown as Href,
+        }}
+      />
+      <Tabs.Screen
+        name="progress"
+        options={{
+          href: null as unknown as Href,
         }}
       />
     </Tabs>

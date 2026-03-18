@@ -82,4 +82,8 @@ export interface Program {
   totalWeeks: number
   /** UI color for this program (hex, e.g., "#ff6b6b") — used in week view rings */
   color?: string
+  /** Whether this program is publicly visible */
+  isPublic?: boolean
+  /** Creator's display name (for public programs) */
+  creatorName?: string
 }

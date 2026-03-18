@@ -77,6 +77,57 @@ export async function deleteProgram(programId: string): Promise<void> {
   await databases.deleteDocument(DATABASE_ID, COLLECTION.PROGRAMS, programId)
 }
 
+
+/**
+ * List public programs from all users for discover/search.
+ * @param searchQuery - Optional search term to filter by name
+ * @param limit - Max results (default 20)
+ * @collection programs
+ */
+export async function listPublicPrograms(searchQuery?: string, limit = 20): Promise<Program[]> {
+  const queries = [
+    Query.equal('isPublic', true),
+    Query.orderDesc('$createdAt'),
+    Query.limit(limit),
+  ]
+  if (searchQuery) {
+    queries.push(Query.search('name', searchQuery))
+  }
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.PROGRAMS, queries)
+  return res.documents as unknown as Program[]
+}
+
+/**
+ * Clone a public program to the current user's programs.
+ * Creates a new program and copies all days with exercises.
+ * @param sourceProgramId - Program to clone
+ * @param userId - New owner user ID
+ * @param creatorName - Name of the new owner
+ * @collection programs, program_days
+ */
+export async function cloneProgram(sourceProgramId: string, userId: string, creatorName: string): Promise<Program> {
+  const source = await getProgram(sourceProgramId)
+  const newProgram = await createProgram({
+    userId,
+    name: source.name,
+    daysPerWeek: source.daysPerWeek,
+    currentWeek: 1,
+    totalWeeks: source.totalWeeks,
+    color: source.color,
+  })
+  const sourceDays = await listProgramDays(sourceProgramId)
+  for (const day of sourceDays) {
+    await createProgramDay({
+      programId: newProgram.$id,
+      userId,
+      name: day.name,
+      order: day.order,
+      exercises: day.exercises,
+    })
+  }
+  return newProgram
+}
+
 // ─── Program Days ────────────────────────────────────────────────────────────
 
 /**

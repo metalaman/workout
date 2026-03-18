@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Dimensions, Alert, Animated, PanResponder,
+  TextInput, Dimensions, Alert, Animated, PanResponder, Switch,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, Href } from 'expo-router'
@@ -10,12 +10,12 @@ import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants
 import { useAuthStore } from '@/stores/auth-store'
 import { useProgramStore } from '@/stores/program-store'
 import { useWorkoutStore } from '@/stores/workout-store'
-import { createWorkoutSession } from '@/lib/database'
+import { createWorkoutSession, updateProgram } from '@/lib/database'
 import { ExerciseIcon, MUSCLE_GROUP_COLORS } from '@/components/exercise-icon'
 import type { ActiveWorkoutExercise } from '@/types'
 import Svg, { Path } from 'react-native-svg'
 
-const TABS = ['Exercises', 'Overview', 'Notes'] as const
+const TABS = ['Exercises', 'Overview', 'Notes', 'Settings'] as const
 type TabName = typeof TABS[number]
 
 const CARD_HEIGHT = 80
@@ -169,17 +169,22 @@ export default function ProgramScreen() {
   const [activeTab, setActiveTab] = useState<TabName>('Exercises')
   const [menuExIdx, setMenuExIdx] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
+  const [isPublic, setIsPublic] = useState((currentProgram as any)?.isPublic ?? false)
+
+  const handleTogglePublic = async () => {
+    if (!currentProgram) return
+    const newVal = !isPublic
+    setIsPublic(newVal)
+    try {
+      await updateProgram(currentProgram.$id, { isPublic: newVal })
+    } catch {
+      setIsPublic(!newVal) // revert on failure
+    }
+  }
 
   useEffect(() => {
     if (user?.$id) loadPrograms(user.$id)
   }, [user?.$id])
-
-  // Auto-switch to detail if there's only one program
-  useEffect(() => {
-    if (programs.length === 1 && currentProgram) {
-      setViewMode('detail')
-    }
-  }, [programs.length, currentProgram])
 
   const currentDay = days[activeDayIndex]
   const exercises = currentDay?.exercises ?? []
@@ -504,6 +509,24 @@ export default function ProgramScreen() {
           </View>
         )}
 
+        {activeTab === 'Settings' && (
+          <View style={styles.settingsContent}>
+            <Text style={styles.settingsSectionTitle}>VISIBILITY</Text>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Public Program</Text>
+                <Text style={styles.settingDesc}>Allow other users to find and clone this program</Text>
+              </View>
+              <Switch
+                value={isPublic}
+                onValueChange={handleTogglePublic}
+                trackColor={{ false: Colors.dark.surfaceLight, true: Colors.dark.accent }}
+                thumbColor={Colors.dark.text}
+              />
+            </View>
+          </View>
+        )}
+
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -751,4 +774,19 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
   },
   startBtnText: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.dark.textOnAccent },
+
+  // Settings tab
+  settingsContent: { paddingTop: Spacing.xl },
+  settingsSectionTitle: {
+    fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.dark.textMuted,
+    letterSpacing: 1.5, marginBottom: Spacing.lg,
+  },
+  settingRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg,
+    padding: Spacing.xl, borderWidth: 1, borderColor: Colors.dark.border,
+  },
+  settingInfo: { flex: 1, marginRight: Spacing.xl },
+  settingLabel: { fontSize: FontSize.xxl, fontWeight: FontWeight.semibold, color: Colors.dark.text },
+  settingDesc: { fontSize: FontSize.base, color: Colors.dark.textSecondary, marginTop: Spacing.xs },
 })

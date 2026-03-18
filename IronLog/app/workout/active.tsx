@@ -128,6 +128,7 @@ export default function ActiveWorkoutScreen() {
           sessionId,
           userId: user.$id,
           exerciseId: currentExercise.exerciseId,
+          exerciseName: currentExercise.exerciseName,
           setNumber: set.setNumber,
           weight,
           reps,
@@ -148,15 +149,34 @@ export default function ActiveWorkoutScreen() {
     }
   }
 
-  const handleCompleteExercise = () => {
+  const handleCompleteExercise = async () => {
     // Complete all remaining sets with default values and move on
+    const setsToSave: { setNumber: number; weight: number; reps: number }[] = []
     currentExercise.sets.forEach((set, i) => {
       if (!set.isCompleted) {
         const w = set.weight || set.previousWeight || 0
         const r = set.reps || set.previousReps || 0
         completeSet(currentExerciseIndex, i, w, r)
+        setsToSave.push({ setNumber: set.setNumber, weight: w, reps: r })
       }
     })
+    // Persist auto-completed sets to Appwrite
+    if (user?.$id && sessionId) {
+      for (const s of setsToSave) {
+        try {
+          await db.createWorkoutSet({
+            sessionId,
+            userId: user.$id,
+            exerciseId: currentExercise.exerciseId,
+            exerciseName: currentExercise.exerciseName,
+            setNumber: s.setNumber,
+            weight: s.weight,
+            reps: s.reps,
+            isCompleted: true,
+          })
+        } catch { /* continue */ }
+      }
+    }
     if (currentExerciseIndex < exercises.length - 1) {
       nextExercise()
     } else {

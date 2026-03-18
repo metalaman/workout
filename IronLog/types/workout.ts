@@ -20,6 +20,8 @@ export interface WorkoutSet {
   userId: string
   /** Exercise this set belongs to */
   exerciseId: string
+  /** Exercise display name (denormalized) */
+  exerciseName?: string
   /** Set number within the exercise (1-indexed) */
   setNumber: number
   /** Weight lifted (lbs) */
