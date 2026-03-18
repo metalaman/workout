@@ -398,7 +398,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Metrics Carousel */}
-        <View style={{ overflow: 'hidden' }}>
+        <View style={{ overflow: 'hidden', width: '100%' }}>
         <ScrollView
           horizontal
           pagingEnabled
