@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Keyboard, TouchableWithoutFeedback } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, Href } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -284,7 +284,7 @@ export default function ActiveWorkoutScreen() {
         </View>
       )}
 
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {activeTab === 'Track' && (
           <>
             {/* Current exercise header card */}
@@ -545,17 +545,27 @@ export default function ActiveWorkoutScreen() {
         )}
 
         {activeTab === 'Notes' && (
-          <View style={styles.notesContent}>
-            <TextInput
-              style={styles.notesInput}
-              value={workoutNotes}
-              onChangeText={setWorkoutNotes}
-              placeholder="Add notes for this workout..."
-              placeholderTextColor={Colors.dark.textMuted}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.notesContent}>
+              <View style={styles.notesDoneRow}>
+                <Text style={styles.notesSectionLabel}>WORKOUT NOTES</Text>
+                <TouchableOpacity onPress={Keyboard.dismiss} style={styles.notesDoneBtn}>
+                  <Text style={styles.notesDoneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={styles.notesInput}
+                value={workoutNotes}
+                onChangeText={setWorkoutNotes}
+                placeholder="Add notes for this workout..."
+                placeholderTextColor={Colors.dark.textMuted}
+                multiline
+                textAlignVertical="top"
+                blurOnSubmit={true}
+                onSubmitEditing={Keyboard.dismiss}
+              />
+            </View>
+          </TouchableWithoutFeedback>
         )}
 
         <View style={{ height: 100 }} />
@@ -800,7 +810,22 @@ const styles = StyleSheet.create({
   historyPlaceholder: { color: Colors.dark.textMuted, fontSize: FontSize.xl, textAlign: 'center', paddingTop: Spacing.xxxxl },
 
   // Notes tab
-  notesContent: { padding: Spacing.xl },
+  notesContent: { padding: Spacing.xl, flex: 1 },
+  notesDoneRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  notesSectionLabel: {
+    color: Colors.dark.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.bold,
+    letterSpacing: 1.5,
+  },
+  notesDoneBtn: {
+    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.accent, borderRadius: BorderRadius.pill,
+  },
+  notesDoneText: {
+    color: Colors.dark.textOnAccent, fontSize: FontSize.sm, fontWeight: FontWeight.bold,
+  },
   notesInput: {
     backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg,
     borderWidth: 1, borderColor: Colors.dark.border,

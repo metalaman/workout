@@ -92,9 +92,9 @@ export const Spacing = {
   md: 8,
   lg: 12,
   xl: 16,
-  xxl: 20,
-  xxxl: 24,
-  xxxxl: 32,
+  xxl: 24,
+  xxxl: 28,
+  xxxxl: 36,
 } as const
 
 /**
@@ -107,30 +107,30 @@ export const BorderRadius = {
   sm: 8,
   md: 10,
   lg: 12,
-  xl: 14,
-  xxl: 16,
+  xl: 16,
+  xxl: 18,
   pill: 20,
   full: 9999,
 } as const
 
 /**
  * Font size scale (in pixels).
- * Intentionally compact — body text is 12-13px, titles are 20px.
- * - `xs` (8): Very small labels
- * - `base` (12): Default body text
- * - `title` (20): Screen titles
- * - `hero` (26): Large numbers (strength score, stats)
+ * Mobile-optimized scale — body text is 14-15px, titles are 22px.
+ * - `xs` (10): Very small labels
+ * - `base` (14): Default body text
+ * - `title` (22): Screen titles
+ * - `hero` (28): Large numbers (strength score, stats)
  */
 export const FontSize = {
-  xs: 8,
-  sm: 10,
-  md: 11,
-  base: 12,
-  lg: 13,
-  xl: 14,
-  xxl: 16,
-  title: 20,
-  hero: 26,
+  xs: 10,
+  sm: 12,
+  md: 13,
+  base: 14,
+  lg: 15,
+  xl: 16,
+  xxl: 18,
+  title: 22,
+  hero: 28,
 } as const
 
 /**

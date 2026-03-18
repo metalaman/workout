@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
+  TextInput, Alert, Keyboard, TouchableWithoutFeedback,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
 import { ExerciseIcon, MUSCLE_GROUP_COLORS } from '@/components/exercise-icon'
 import { useSessionStore } from '@/stores/session-store'
-import { listWorkoutSets } from '@/lib/database'
+import { listWorkoutSets, updateWorkoutSet, createWorkoutSet } from '@/lib/database'
+import { useAuthStore } from '@/stores/auth-store'
 import { formatDuration } from '@/lib/utils'
 import Svg, { Path } from 'react-native-svg'
 import type { WorkoutSet } from '@/types'
@@ -35,6 +37,11 @@ export default function WorkoutDetailScreen() {
   const { allSessions, recentSessions } = useSessionStore()
   const [exercises, setExercises] = useState<GroupedExercise[]>([])
   const [loading, setLoading] = useState(true)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editData, setEditData] = useState<GroupedExercise[]>([])
+  const [saving, setSaving] = useState(false)
+  const { user } = useAuthStore()
+  const [rawSets, setRawSets] = useState<WorkoutSet[]>([])
 
   const session = [...allSessions, ...recentSessions].find((s) => s.$id === sessionId)
 
@@ -47,6 +54,7 @@ export default function WorkoutDetailScreen() {
     setLoading(true)
     try {
       const sets = await listWorkoutSets(sessionId!)
+      setRawSets(sets)
       // Group by exerciseId
       const grouped = new Map<string, GroupedExercise>()
       for (const s of sets) {
@@ -91,6 +99,87 @@ export default function WorkoutDetailScreen() {
 
   const formatVolume = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toString()
 
+  const startEditing = () => {
+    setEditData(JSON.parse(JSON.stringify(exercises)))
+    setIsEditing(true)
+  }
+
+  const cancelEditing = () => {
+    setEditData([])
+    setIsEditing(false)
+  }
+
+  const handleEditSet = (exIdx: number, setIdx: number, field: 'weight' | 'reps', value: string) => {
+    const updated = JSON.parse(JSON.stringify(editData))
+    updated[exIdx].sets[setIdx][field] = parseInt(value, 10) || 0
+    setEditData(updated)
+  }
+
+  const handleAddSet = (exIdx: number) => {
+    const updated = JSON.parse(JSON.stringify(editData))
+    const lastSet = updated[exIdx].sets[updated[exIdx].sets.length - 1]
+    updated[exIdx].sets.push({
+      setNumber: updated[exIdx].sets.length + 1,
+      weight: lastSet?.weight ?? 0,
+      reps: lastSet?.reps ?? 0,
+      isNew: true,
+    })
+    setEditData(updated)
+  }
+
+  const handleSave = async () => {
+    if (!sessionId || !user?.$id) return
+    setSaving(true)
+    try {
+      for (let exIdx = 0; exIdx < editData.length; exIdx++) {
+        const ex = editData[exIdx]
+        for (let setIdx = 0; setIdx < ex.sets.length; setIdx++) {
+          const s = ex.sets[setIdx]
+          if ((s as any).isNew) {
+            // Create new set in Appwrite
+            await createWorkoutSet({
+              sessionId,
+              userId: user.$id,
+              exerciseId: ex.exerciseId,
+              exerciseName: ex.exerciseName,
+              setNumber: s.setNumber,
+              weight: s.weight,
+              reps: s.reps,
+              isCompleted: true,
+            } as any)
+          } else {
+            // Find matching raw set and update
+            const origEx = exercises[exIdx]
+            if (origEx && origEx.sets[setIdx]) {
+              const orig = origEx.sets[setIdx]
+              if (orig.weight !== s.weight || orig.reps !== s.reps) {
+                // Find the raw set $id
+                const matchingRaw = rawSets.find(
+                  (rs) => rs.exerciseId === ex.exerciseId && rs.setNumber === s.setNumber
+                )
+                if (matchingRaw) {
+                  await updateWorkoutSet(matchingRaw.$id, {
+                    weight: s.weight,
+                    reps: s.reps,
+                  })
+                }
+              }
+            }
+          }
+        }
+      }
+      setIsEditing(false)
+      setEditData([])
+      await loadSets() // Reload from Appwrite
+      Alert.alert('Saved', 'Workout updated successfully')
+    } catch (err) {
+      Alert.alert('Error', 'Failed to save changes')
+    }
+    setSaving(false)
+  }
+
+  const displayExercises = isEditing ? editData : exercises
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -105,10 +194,23 @@ export default function WorkoutDetailScreen() {
           </Text>
           <Text style={styles.headerDate}>{workoutDate}</Text>
         </View>
-        <View style={{ width: 40 }} />
+        {isEditing ? (
+          <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+            <TouchableOpacity onPress={cancelEditing} style={styles.headerActionBtn}>
+              <Text style={styles.headerCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleSave} style={[styles.headerActionBtn, styles.headerSaveBtn]} disabled={saving}>
+              <Text style={styles.headerSaveText}>{saving ? '...' : 'Save'}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={startEditing} style={styles.headerActionBtn}>
+            <Text style={styles.headerEditText}>Edit</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>
@@ -142,7 +244,7 @@ export default function WorkoutDetailScreen() {
         ) : (
           <View style={styles.exercisesSection}>
             <Text style={styles.sectionTitle}>EXERCISES</Text>
-            {exercises.map((ex, i) => {
+            {displayExercises.map((ex, i) => {
               const mg = guessMuscleGroup(ex.exerciseName)
               const color = MUSCLE_GROUP_COLORS[mg] || Colors.dark.accent
               const exVolume = ex.sets.reduce((a, s) => a + s.weight * s.reps, 0)
@@ -168,10 +270,35 @@ export default function WorkoutDetailScreen() {
                     {ex.sets.map((s, si) => (
                       <View key={si} style={styles.setRow}>
                         <Text style={[styles.setCell, { flex: 0.5 }]}>{s.setNumber}</Text>
-                        <Text style={styles.setCell}>{s.weight} lbs</Text>
-                        <Text style={styles.setCell}>{s.reps}</Text>
+                        {isEditing ? (
+                          <TextInput
+                            style={styles.editInput}
+                            value={String(s.weight)}
+                            onChangeText={(v) => handleEditSet(i, si, 'weight', v)}
+                            keyboardType="numeric"
+                            selectTextOnFocus
+                          />
+                        ) : (
+                          <Text style={styles.setCell}>{s.weight} lbs</Text>
+                        )}
+                        {isEditing ? (
+                          <TextInput
+                            style={styles.editInput}
+                            value={String(s.reps)}
+                            onChangeText={(v) => handleEditSet(i, si, 'reps', v)}
+                            keyboardType="numeric"
+                            selectTextOnFocus
+                          />
+                        ) : (
+                          <Text style={styles.setCell}>{s.reps}</Text>
+                        )}
                       </View>
                     ))}
+                    {isEditing && (
+                      <TouchableOpacity onPress={() => handleAddSet(i)} style={styles.addSetBtn}>
+                        <Text style={styles.addSetText}>+ Add Set</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               )
@@ -273,5 +400,34 @@ const styles = StyleSheet.create({
   },
   setCell: {
     flex: 1, fontSize: FontSize.xl, color: Colors.dark.text,
+  },
+  headerActionBtn: {
+    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.pill, backgroundColor: Colors.dark.surface,
+  },
+  headerSaveBtn: {
+    backgroundColor: Colors.dark.accent,
+  },
+  headerEditText: {
+    color: Colors.dark.accent, fontSize: FontSize.base, fontWeight: FontWeight.bold,
+  },
+  headerCancelText: {
+    color: Colors.dark.textSecondary, fontSize: FontSize.base, fontWeight: FontWeight.semibold,
+  },
+  headerSaveText: {
+    color: Colors.dark.textOnAccent, fontSize: FontSize.base, fontWeight: FontWeight.bold,
+  },
+  editInput: {
+    flex: 1, fontSize: FontSize.xl, color: Colors.dark.accent, fontWeight: FontWeight.bold,
+    textAlign: 'center', backgroundColor: Colors.dark.surfaceLight,
+    borderRadius: BorderRadius.sm, paddingVertical: 4, marginHorizontal: 2,
+  },
+  addSetBtn: {
+    marginTop: Spacing.md, paddingVertical: Spacing.md,
+    alignItems: 'center', borderRadius: BorderRadius.md,
+    borderWidth: 1, borderColor: Colors.dark.border, borderStyle: 'dashed',
+  },
+  addSetText: {
+    color: Colors.dark.accent, fontSize: FontSize.base, fontWeight: FontWeight.semibold,
   },
 })

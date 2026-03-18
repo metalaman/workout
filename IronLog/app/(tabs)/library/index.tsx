@@ -108,8 +108,18 @@ export default function LibraryScreen() {
   const handleExercisePress = (index: number) => {
     const exercise = filteredExercises[index]
     if (exercise.isCustom) {
-      // Custom exercises don't have a detail page yet
-      Alert.alert(exercise.name, `${exercise.muscleGroup} · ${exercise.equipment}\n\nCustom exercise`)
+      router.push({
+        pathname: '/(tabs)/library/[id]',
+        params: {
+          id: 'custom',
+          name: exercise.name,
+          muscleGroup: exercise.muscleGroup,
+          equipment: exercise.equipment,
+          secondaryMuscles: JSON.stringify(exercise.secondaryMuscles),
+          difficulty: exercise.difficulty,
+          instructions: exercise.instructions || '',
+        },
+      } as any)
       return
     }
     // Find the original index in SEED_EXERCISES

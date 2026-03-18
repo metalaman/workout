@@ -8,15 +8,31 @@ import { useAuthStore } from '@/stores/auth-store'
 import { getExerciseHistory } from '@/lib/database'
 import { calculate1RM, getRelativeTime } from '@/lib/utils'
 import type { WorkoutSet } from '@/types'
+import { ExerciseIcon } from '@/components/exercise-icon'
 
 export default function ExerciseDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const params = useLocalSearchParams<{
+    id: string; name?: string; muscleGroup?: string; equipment?: string;
+    secondaryMuscles?: string; difficulty?: string; instructions?: string;
+  }>()
   const router = useRouter()
   const { user } = useAuthStore()
   const [history, setHistory] = useState<WorkoutSet[]>([])
 
-  const exerciseIndex = parseInt(id ?? '0', 10)
-  const exercise = SEED_EXERCISES[exerciseIndex]
+  const isCustom = params.id === 'custom'
+  const exerciseIndex = isCustom ? -1 : parseInt(params.id ?? '0', 10)
+
+  const exercise = isCustom
+    ? {
+        name: params.name ?? 'Custom Exercise',
+        muscleGroup: params.muscleGroup ?? 'Chest',
+        equipment: params.equipment ?? 'Bodyweight',
+        secondaryMuscles: (() => { try { return JSON.parse(params.secondaryMuscles ?? '[]') } catch { return [] } })(),
+        difficulty: params.difficulty ?? 'Intermediate',
+        icon: '⭐',
+        instructions: params.instructions ?? 'Custom exercise — no instructions provided.',
+      }
+    : SEED_EXERCISES[exerciseIndex]
 
   useEffect(() => {
     if (user?.$id && exercise) {
@@ -70,7 +86,7 @@ export default function ExerciseDetailScreen() {
         {/* Exercise Info */}
         <View style={styles.infoSection}>
           <View style={styles.iconLarge}>
-            <Text style={styles.iconEmoji}>{exercise.icon}</Text>
+            <ExerciseIcon exerciseName={exercise.name} muscleGroup={exercise.muscleGroup as any} size={40} />
           </View>
           <Text style={styles.exerciseName}>{exercise.name}</Text>
           <View style={styles.badgeRow}>
@@ -83,6 +99,11 @@ export default function ExerciseDetailScreen() {
             <View style={[styles.badge, styles.difficultyBadge]}>
               <Text style={styles.badgeText}>{exercise.difficulty}</Text>
             </View>
+            {isCustom && (
+              <View style={[styles.badge, { backgroundColor: 'rgba(232,255,71,0.15)', borderWidth: 1, borderColor: '#e8ff47' }]}>
+                <Text style={[styles.badgeText, { color: '#e8ff47' }]}>Custom</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -261,7 +282,7 @@ const styles = StyleSheet.create({
   instructionText: {
     color: Colors.dark.textSecondary,
     fontSize: FontSize.base,
-    lineHeight: 18,
+    lineHeight: 22,
   },
   statsRow: {
     flexDirection: 'row',
