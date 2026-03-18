@@ -402,7 +402,7 @@ export default function HomeScreen() {
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          snapToInterval={CARD_W + 12}
+          snapToInterval={CARD_W + 10}
           decelerationRate="fast"
           contentContainerStyle={styles.carouselContent}
           style={styles.carousel}
@@ -982,18 +982,18 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.xxl, paddingTop: Spacing.sm, paddingBottom: Spacing.xs,
+    paddingHorizontal: Spacing.xxl, paddingTop: Spacing.xs, paddingBottom: Spacing.xs,
   },
   dateText: { color: Colors.dark.textMuted, fontSize: FontSize.md, fontWeight: FontWeight.semibold, letterSpacing: 1 },
   greeting: { color: Colors.dark.text, fontSize: FontSize.title, fontWeight: FontWeight.bold, marginTop: 2 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontWeight: FontWeight.extrabold, fontSize: FontSize.xl, color: Colors.dark.textOnAccent },
 
-  carousel: { marginBottom: Spacing.md },
-  carouselContent: { paddingHorizontal: Spacing.xxl, gap: 12 },
+  carousel: { marginBottom: Spacing.sm, overflow: 'hidden' },
+  carouselContent: { paddingHorizontal: Spacing.xxl, gap: 10 },
   carouselCard: {
     backgroundColor: '#1a1a1a', borderRadius: BorderRadius.xxl,
-    borderWidth: 1, borderColor: Colors.dark.border, padding: Spacing.xl,
+    borderWidth: 1, borderColor: Colors.dark.border, padding: Spacing.lg,
     overflow: 'hidden',
   },
   carouselLabel: {
@@ -1001,7 +1001,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5, marginBottom: Spacing.sm,
   },
 
-  weekSection: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.xl },
+  weekSection: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.lg },
   weekHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
   weekCount: { color: Colors.dark.textSecondary, fontSize: FontSize.sm },
   weekRow: { flexDirection: 'row', gap: Spacing.sm },

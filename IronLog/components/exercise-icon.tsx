@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import Svg, { Path, Ellipse } from 'react-native-svg'
+import Svg, { Path, Ellipse, Rect, Circle } from 'react-native-svg'
 
 interface ExerciseIconProps {
   exerciseName?: string
@@ -141,17 +141,17 @@ const VIEWBOXES: Record<CloseUpRegion, string> = {
 
 function renderChest(color: string, primarySet: Set<string>, secondarySet: Set<string>) {
   const chestPrimary = primarySet.has('chest')
-  const chestOpacity = chestPrimary ? 0.85 : secondarySet.has('chest') ? 0.3 : 0.06
-  const shoulderOpacity = primarySet.has('shoulders') ? 0.85 : secondarySet.has('shoulders') ? 0.3 : 0
-  const tricepOpacity = primarySet.has('triceps') ? 0.85 : secondarySet.has('triceps') ? 0.3 : 0
+  const chestOpacity = chestPrimary ? 0.95 : secondarySet.has('chest') ? 0.4 : 0.06
+  const shoulderOpacity = primarySet.has('shoulders') ? 0.95 : secondarySet.has('shoulders') ? 0.4 : 0
+  const tricepOpacity = primarySet.has('triceps') ? 0.95 : secondarySet.has('triceps') ? 0.4 : 0
 
   return (
     <>
       {/* Torso outline — shoulders to mid-ribcage */}
       <Path
         d="M10,18 Q12,10 22,6 L32,4 Q50,2 68,4 L78,6 Q88,10 90,18 L92,32 L90,50 Q85,65 78,72 L68,76 Q50,78 32,76 L22,72 Q15,65 10,50 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1.5}
       />
       {/* Shoulder caps */}
@@ -235,17 +235,17 @@ function renderChest(color: string, primarySet: Set<string>, secondarySet: Set<s
 function renderBack(color: string, primarySet: Set<string>, secondarySet: Set<string>) {
   const backPrimary = primarySet.has('back')
   const latsPrimary = primarySet.has('lats')
-  const backOpacity = backPrimary ? 0.85 : secondarySet.has('back') ? 0.3 : 0.06
-  const latsOpacity = latsPrimary ? 0.85 : secondarySet.has('lats') ? 0.3 : 0.06
-  const trapOpacity = primarySet.has('traps') ? 0.85 : secondarySet.has('traps') ? 0.3 : 0
+  const backOpacity = backPrimary ? 0.95 : secondarySet.has('back') ? 0.4 : 0.06
+  const latsOpacity = latsPrimary ? 0.95 : secondarySet.has('lats') ? 0.4 : 0.06
+  const trapOpacity = primarySet.has('traps') ? 0.95 : secondarySet.has('traps') ? 0.4 : 0
 
   return (
     <>
       {/* Posterior torso outline */}
       <Path
         d="M10,18 Q12,10 22,6 L32,4 Q50,2 68,4 L78,6 Q88,10 90,18 L92,34 L90,52 Q85,65 78,72 L68,76 Q50,78 32,76 L22,72 Q15,65 10,52 L8,34 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1.5}
       />
       {/* Traps — diamond between neck and shoulders */}
@@ -319,18 +319,18 @@ function renderLegs(color: string, primarySet: Set<string>, secondarySet: Set<st
   const hamsPrimary = primarySet.has('hamstrings')
   const glutesPrimary = primarySet.has('glutes')
   const calvesPrimary = primarySet.has('calves')
-  const quadsOpacity = quadsPrimary ? 0.85 : secondarySet.has('quads') ? 0.3 : 0.06
-  const hamsOpacity = hamsPrimary ? 0.85 : secondarySet.has('hamstrings') ? 0.3 : 0.06
-  const glutesOpacity = glutesPrimary ? 0.85 : secondarySet.has('glutes') ? 0.3 : 0.06
-  const calvesOpacity = calvesPrimary ? 0.85 : secondarySet.has('calves') ? 0.3 : 0.06
+  const quadsOpacity = quadsPrimary ? 0.95 : secondarySet.has('quads') ? 0.4 : 0.06
+  const hamsOpacity = hamsPrimary ? 0.95 : secondarySet.has('hamstrings') ? 0.4 : 0.06
+  const glutesOpacity = glutesPrimary ? 0.95 : secondarySet.has('glutes') ? 0.4 : 0.06
+  const calvesOpacity = calvesPrimary ? 0.95 : secondarySet.has('calves') ? 0.4 : 0.06
 
   return (
     <>
       {/* Hip/waistband area */}
       <Path
         d="M8,4 Q20,0 40,0 Q60,0 72,4 L74,12 Q68,16 60,18 L40,20 L20,18 Q12,16 6,12 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1.5}
       />
       {/* Glutes — upper hip mass */}
@@ -353,15 +353,15 @@ function renderLegs(color: string, primarySet: Set<string>, secondarySet: Set<st
       {/* Left leg outline */}
       <Path
         d="M8,14 L4,30 L2,50 L4,68 L6,80 L8,90 L14,92 L18,88 L20,78 L22,60 L24,42 L24,24 L22,18 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1.5}
       />
       {/* Right leg outline */}
       <Path
         d="M72,14 L76,30 L78,50 L76,68 L74,80 L72,90 L66,92 L62,88 L60,78 L58,60 L56,42 L56,24 L58,18 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1.5}
       />
       {/* Left quad — big front thigh */}
@@ -429,24 +429,24 @@ function renderArms(color: string, primarySet: Set<string>, secondarySet: Set<st
   const bicepsPrimary = primarySet.has('biceps')
   const tricepsPrimary = primarySet.has('triceps')
   const forearmsPrimary = primarySet.has('forearms')
-  const bicepsOpacity = bicepsPrimary ? 0.85 : secondarySet.has('biceps') ? 0.3 : 0.06
-  const tricepsOpacity = tricepsPrimary ? 0.85 : secondarySet.has('triceps') ? 0.3 : 0.06
-  const forearmsOpacity = forearmsPrimary ? 0.85 : secondarySet.has('forearms') ? 0.3 : 0.06
+  const bicepsOpacity = bicepsPrimary ? 0.95 : secondarySet.has('biceps') ? 0.4 : 0.06
+  const tricepsOpacity = tricepsPrimary ? 0.95 : secondarySet.has('triceps') ? 0.4 : 0.06
+  const forearmsOpacity = forearmsPrimary ? 0.95 : secondarySet.has('forearms') ? 0.4 : 0.06
 
   return (
     <>
       {/* Shoulder cap at top */}
       <Path
         d="M10,6 Q16,0 30,0 Q44,0 50,6 L52,14 Q48,18 40,20 L20,20 Q12,18 8,14 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1.5}
       />
       {/* Upper arm outline */}
       <Path
         d="M12,16 L8,32 L6,48 L8,56 L14,58 L18,58 L22,56 L26,58 L32,58 L38,56 L42,48 L44,32 L42,16 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1.5}
       />
       {/* Bicep — front of arm, prominent bulge */}
@@ -471,7 +471,7 @@ function renderArms(color: string, primarySet: Set<string>, secondarySet: Set<st
       <Path
         d="M12,34 Q18,30 24,34"
         fill="none"
-        stroke="rgba(255,255,255,0.15)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={0.6}
       />
       {/* Tricep horseshoe detail */}
@@ -486,8 +486,8 @@ function renderArms(color: string, primarySet: Set<string>, secondarySet: Set<st
       {/* Forearm */}
       <Path
         d="M12,60 L8,72 L6,84 L10,92 L18,94 L24,92 L28,84 L30,72 L28,60 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1.2}
       />
       {/* Forearm muscle fill */}
@@ -513,23 +513,23 @@ function renderArms(color: string, primarySet: Set<string>, secondarySet: Set<st
 function renderShoulders(color: string, primarySet: Set<string>, secondarySet: Set<string>) {
   const shouldersPrimary = primarySet.has('shoulders')
   const trapsPrimary = primarySet.has('traps')
-  const shouldersOpacity = shouldersPrimary ? 0.85 : secondarySet.has('shoulders') ? 0.3 : 0.06
-  const trapsOpacity = trapsPrimary ? 0.85 : secondarySet.has('traps') ? 0.3 : 0.06
+  const shouldersOpacity = shouldersPrimary ? 0.95 : secondarySet.has('shoulders') ? 0.4 : 0.06
+  const trapsOpacity = trapsPrimary ? 0.95 : secondarySet.has('traps') ? 0.4 : 0.06
 
   return (
     <>
       {/* Upper torso and neck base */}
       <Path
         d="M30,24 Q34,20 40,18 L50,16 L60,18 Q66,20 70,24 L74,36 Q72,50 68,58 L60,64 Q50,66 40,64 L32,58 Q28,50 26,36 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1.5}
       />
       {/* Neck */}
       <Path
         d="M42,10 Q50,6 58,10 L58,18 Q54,20 50,20 Q46,20 42,18 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1}
       />
       {/* Traps — between neck and shoulders */}
@@ -575,13 +575,13 @@ function renderShoulders(color: string, primarySet: Set<string>, secondarySet: S
       {/* Upper arm stubs */}
       <Path
         d="M6,34 L4,50 L8,56 L16,56 L20,50 L20,40 Z"
-        fill="rgba(255,255,255,0.04)"
+        fill="rgba(255,255,255,0.06)"
         stroke="rgba(255,255,255,0.12)"
         strokeWidth={1}
       />
       <Path
         d="M94,34 L96,50 L92,56 L84,56 L80,50 L80,40 Z"
-        fill="rgba(255,255,255,0.04)"
+        fill="rgba(255,255,255,0.06)"
         stroke="rgba(255,255,255,0.12)"
         strokeWidth={1}
       />
@@ -591,15 +591,15 @@ function renderShoulders(color: string, primarySet: Set<string>, secondarySet: S
 
 function renderCore(color: string, primarySet: Set<string>, secondarySet: Set<string>) {
   const corePrimary = primarySet.has('core')
-  const coreOpacity = corePrimary ? 0.85 : secondarySet.has('core') ? 0.3 : 0.06
+  const coreOpacity = corePrimary ? 0.95 : secondarySet.has('core') ? 0.4 : 0.06
 
   return (
     <>
       {/* Torso midsection outline — ribcage to hips */}
       <Path
         d="M12,4 Q16,0 26,0 L40,2 L54,0 Q64,0 68,4 L72,16 Q74,30 72,46 L70,60 Q68,72 66,80 L62,90 Q52,96 40,96 Q28,96 18,90 L14,80 Q12,72 10,60 L8,46 Q6,30 8,16 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1.5}
       />
       {/* Lower chest line / ribcage boundary */}
@@ -665,7 +665,7 @@ function renderCore(color: string, primarySet: Set<string>, secondarySet: Set<st
       <Path
         d="M40,14 L40,82"
         fill="none"
-        stroke="rgba(255,255,255,0.15)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1}
       />
       {/* Horizontal tendinous inscriptions */}
@@ -706,26 +706,26 @@ function renderFullBody(color: string, primarySet: Set<string>, secondarySet: Se
       <Ellipse
         cx={50} cy={17} rx={9} ry={9}
         fill="rgba(255,255,255,0.06)"
-        stroke="rgba(255,255,255,0.15)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1}
       />
       {/* Body fill */}
       <Path
         d="M38,32 L36,55 L37,80 L38,84 L34,110 L32,130 L30,145 L29,165 L28,182 L34,182 L36,145 L38,115 L42,86 L50,89 L58,86 L62,115 L64,145 L66,182 L72,182 L71,165 L70,145 L68,130 L66,110 L62,84 L63,80 L64,55 L62,32 Z"
-        fill="rgba(255,255,255,0.04)"
-        stroke="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
         strokeWidth={1.5}
       />
       {/* Arms */}
       <Path
         d="M32,35 L30,50 L28,65 L26,72 L28,74 L31,66 L34,50 L36,38 Z"
-        fill="rgba(255,255,255,0.04)"
+        fill="rgba(255,255,255,0.06)"
         stroke="rgba(255,255,255,0.12)"
         strokeWidth={1}
       />
       <Path
         d="M68,35 L70,50 L72,65 L74,72 L72,74 L69,66 L66,50 L64,38 Z"
-        fill="rgba(255,255,255,0.04)"
+        fill="rgba(255,255,255,0.06)"
         stroke="rgba(255,255,255,0.12)"
         strokeWidth={1}
       />
@@ -780,6 +780,7 @@ export const ExerciseIcon = React.memo(function ExerciseIcon({
 
   const region = useMemo(() => getCloseUpRegion(primaryMuscles), [primaryMuscles])
   const viewBox = VIEWBOXES[region]
+  const [, , vbW, vbH] = viewBox.split(' ').map(Number)
 
   const renderRegion = () => {
     switch (region) {
@@ -795,6 +796,7 @@ export const ExerciseIcon = React.memo(function ExerciseIcon({
 
   return (
     <Svg width={size} height={size} viewBox={viewBox}>
+      <Rect x={0} y={0} width={vbW} height={vbH} rx={8} ry={8} fill={color} fillOpacity={0.08} />
       {renderRegion()}
     </Svg>
   )

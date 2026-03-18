@@ -244,7 +244,7 @@ export default function ProgramScreen() {
                 <View style={styles.programInfo}>
                   <Text style={styles.programName}>{prog.name}</Text>
                   <Text style={styles.programMeta}>
-                    {prog.daysPerWeek} days/week · {prog.totalWeeks} weeks
+                    {prog.daysPerWeek} days/week
                   </Text>
                 </View>
                 <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">

@@ -224,7 +224,7 @@ export default function LibraryScreen() {
           <TouchableOpacity onPress={() => handleExercisePress(index)} activeOpacity={0.7}>
             <View style={styles.exerciseRow}>
               <View style={styles.exerciseIcon}>
-                <ExerciseIcon exerciseName={item.name} muscleGroup={item.muscleGroup} size={32} />
+                <ExerciseIcon exerciseName={item.name} muscleGroup={item.muscleGroup} size={40} />
               </View>
               <View style={styles.exerciseInfo}>
                 <View style={styles.exerciseNameRow}>
