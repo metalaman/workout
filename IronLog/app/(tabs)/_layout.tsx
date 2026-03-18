@@ -76,8 +76,7 @@ const tabStyles = StyleSheet.create({
 })
 
 export default function TabLayout() {
-  const { groups } = useSocialStore()
-  const hasUnread = groups.length > 0
+  const { hasUnread } = useSocialStore()
 
   return (
     <Tabs

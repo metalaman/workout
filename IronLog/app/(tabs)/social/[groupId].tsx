@@ -123,7 +123,7 @@ export default function GroupChatScreen() {
   const router = useRouter()
   const { groupId } = useLocalSearchParams<{ groupId: string }>()
   const { user, profile } = useAuthStore()
-  const { messages, isMessagesLoading, loadMessages, sendMessage, loadMembers, members } = useSocialStore()
+  const { messages, isMessagesLoading, loadMessages, sendMessage, loadMembers, members, markGroupRead, onNewMessage } = useSocialStore()
   const [text, setText] = useState('')
   const [group, setGroup] = useState<Group | null>(null)
   const [sending, setSending] = useState(false)
@@ -145,6 +145,8 @@ export default function GroupChatScreen() {
       db.getGroup(groupId).then(setGroup).catch(() => {})
       loadMessages(groupId)
       loadMembers(groupId)
+      // Mark this group as read
+      markGroupRead(groupId)
     }
   }, [groupId])
 
@@ -158,6 +160,8 @@ export default function GroupChatScreen() {
       if (payload?.groupId !== groupId) return
       if (events.some((e: string) => e.includes('.create') || e.includes('.delete'))) {
         loadMessages(groupId)
+        // Mark as read since user is viewing this chat
+        markGroupRead(groupId)
       }
     })
     return () => { unsubscribe() }

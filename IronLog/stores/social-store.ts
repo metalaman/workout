@@ -7,8 +7,24 @@
  * @module stores/social-store
  */
 import { create } from 'zustand'
+import * as SecureStore from 'expo-secure-store'
 import type { Group, GroupMember, GroupMessage, GroupInvitation } from '@/types/social'
 import * as db from '@/lib/database'
+
+const LAST_READ_KEY = 'ironlog_group_last_read'
+
+async function loadLastRead(): Promise<Record<string, string>> {
+  try {
+    const raw = await SecureStore.getItemAsync(LAST_READ_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch { return {} }
+}
+
+async function saveLastRead(map: Record<string, string>) {
+  try {
+    await SecureStore.setItemAsync(LAST_READ_KEY, JSON.stringify(map))
+  } catch {}
+}
 
 interface SocialState {
   groups: Group[]
@@ -18,6 +34,12 @@ interface SocialState {
   invitations: GroupInvitation[]
   isLoading: boolean
   isMessagesLoading: boolean
+  /** groupId → ISO timestamp of last read */
+  lastReadTimestamps: Record<string, string>
+  /** groupId → ISO timestamp of newest message */
+  lastMessageTimestamps: Record<string, string>
+  /** Whether any group has unread messages */
+  hasUnread: boolean
 
   loadGroups: (userId: string) => Promise<void>
   setActiveGroup: (group: Group | null) => void
@@ -33,6 +55,12 @@ interface SocialState {
   sendInvitation: (groupId: string, groupName: string, groupColor: string, invitedBy: string, inviterName: string, invitedUserId: string) => Promise<void>
   acceptInvitation: (invitation: GroupInvitation, userId: string, displayName: string, avatarColor: string) => Promise<void>
   declineInvitation: (invitationId: string) => Promise<void>
+  /** Mark a group as read (call when user opens chat) */
+  markGroupRead: (groupId: string) => void
+  /** Refresh unread state for all groups */
+  refreshUnread: () => Promise<void>
+  /** Called when a new realtime message arrives */
+  onNewMessage: (groupId: string, createdAt: string) => void
 }
 
 export const useSocialStore = create<SocialState>((set, get) => ({
@@ -43,12 +71,33 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   invitations: [],
   isLoading: false,
   isMessagesLoading: false,
+  lastReadTimestamps: {},
+  lastMessageTimestamps: {},
+  hasUnread: false,
 
   loadGroups: async (userId: string) => {
     set({ isLoading: true })
     try {
       const groups = await db.listUserGroups(userId)
-      set({ groups, isLoading: false })
+      // Load last-read timestamps from local storage
+      const lastReadTimestamps = await loadLastRead()
+      // Fetch last message timestamp for each group
+      const lastMessageTimestamps: Record<string, string> = {}
+      await Promise.all(groups.map(async (g) => {
+        try {
+          const lastMsg = await db.getLastGroupMessage(g.$id)
+          if (lastMsg?.$createdAt) lastMessageTimestamps[g.$id] = lastMsg.$createdAt
+        } catch {}
+      }))
+      // Compute unread
+      const hasUnread = groups.some(g => {
+        const lastMsg = lastMessageTimestamps[g.$id]
+        if (!lastMsg) return false
+        const lastRead = lastReadTimestamps[g.$id]
+        if (!lastRead) return true // never read = unread
+        return lastMsg > lastRead
+      })
+      set({ groups, isLoading: false, lastReadTimestamps, lastMessageTimestamps, hasUnread })
     } catch {
       set({ isLoading: false })
     }
@@ -164,5 +213,58 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     } catch {
       // silently fail
     }
+  },
+
+  markGroupRead: (groupId: string) => {
+    const now = new Date().toISOString()
+    const updated = { ...get().lastReadTimestamps, [groupId]: now }
+    set({ lastReadTimestamps: updated })
+    // Recompute hasUnread
+    const { lastMessageTimestamps, groups } = get()
+    const hasUnread = groups.some(g => {
+      const lastMsg = lastMessageTimestamps[g.$id]
+      if (!lastMsg) return false
+      const lastRead = updated[g.$id]
+      if (!lastRead) return true
+      return lastMsg > lastRead
+    })
+    set({ hasUnread })
+    // Persist to local storage
+    saveLastRead(updated)
+  },
+
+  refreshUnread: async () => {
+    const { groups } = get()
+    const lastReadTimestamps = await loadLastRead()
+    const lastMessageTimestamps: Record<string, string> = {}
+    await Promise.all(groups.map(async (g) => {
+      try {
+        const lastMsg = await db.getLastGroupMessage(g.$id)
+        if (lastMsg?.$createdAt) lastMessageTimestamps[g.$id] = lastMsg.$createdAt
+      } catch {}
+    }))
+    const hasUnread = groups.some(g => {
+      const lastMsg = lastMessageTimestamps[g.$id]
+      if (!lastMsg) return false
+      const lastRead = lastReadTimestamps[g.$id]
+      if (!lastRead) return true
+      return lastMsg > lastRead
+    })
+    set({ lastReadTimestamps, lastMessageTimestamps, hasUnread })
+  },
+
+  onNewMessage: (groupId: string, createdAt: string) => {
+    const updated = { ...get().lastMessageTimestamps, [groupId]: createdAt }
+    set({ lastMessageTimestamps: updated })
+    // Recompute hasUnread
+    const { lastReadTimestamps, groups } = get()
+    const hasUnread = groups.some(g => {
+      const lastMsg = updated[g.$id]
+      if (!lastMsg) return false
+      const lastRead = lastReadTimestamps[g.$id]
+      if (!lastRead) return true
+      return lastMsg > lastRead
+    })
+    set({ hasUnread })
   },
 }))
