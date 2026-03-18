@@ -398,6 +398,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Metrics Carousel */}
+        <View style={{ overflow: 'hidden' }}>
         <ScrollView
           horizontal
           pagingEnabled
@@ -415,6 +416,7 @@ export default function HomeScreen() {
             <StrengthBalanceGauge {...strengthBalance} />
           </View>
         </ScrollView>
+        </View>
 
         {/* Weekly Calendar — swipeable with calendar picker */}
         <View style={styles.weekSection}>

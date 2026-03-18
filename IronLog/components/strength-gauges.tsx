@@ -44,7 +44,7 @@ export const StrengthScoreGauge = React.memo(function StrengthScoreGauge({ score
 
   return (
     <View style={gaugeStyles.container}>
-      <Svg width={200} height={140} viewBox="0 0 200 140">
+      <Svg width={200} height={120} viewBox="0 0 200 130">
         {/* Background arc */}
         <Path
           d={getArcPath(cx, cy, r, startAngle, endAngle)}
