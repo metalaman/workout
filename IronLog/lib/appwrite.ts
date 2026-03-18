@@ -76,6 +76,10 @@ export const COLLECTION = {
   CARDIO_SESSIONS: 'cardio_sessions',
   /** Progress photo entries */
   PROGRESS_PHOTOS: 'progress_photos',
+  /** Nutrition profiles (onboarding data + calculated targets) */
+  NUTRITION_PROFILES: 'nutrition_profiles',
+  /** Food log entries (daily meal tracking) */
+  FOOD_LOGS: 'food_logs',
 } as const
 
 /**
