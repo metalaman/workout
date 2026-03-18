@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
-import Svg, { Path, Circle, Rect, Line } from 'react-native-svg'
+import Svg, { Path, Rect, Line } from 'react-native-svg'
 import { Colors, FontSize, FontWeight, BorderRadius, Spacing } from '@/constants/theme'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSessionStore } from '@/stores/session-store'
@@ -27,13 +27,6 @@ const ChartIcon = () => (
 const ScaleIcon = () => (
   <Svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none">
     <Path d="M12 3v1m0 16v1m-9-9h1m16 0h1m-2.636-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" stroke={iconColor} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-)
-
-const CameraIcon = () => (
-  <Svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none">
-    <Path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke={iconColor} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
-    <Circle cx="12" cy="13" r="4" stroke={iconColor} strokeWidth={1.6} />
   </Svg>
 )
 
@@ -61,7 +54,6 @@ const navItems: NavItem[] = [
   { icon: <DumbbellIcon />, label: 'Exercise Library', route: '/(tabs)/library' },
   { icon: <ChartIcon />, label: 'Stats & Progress', route: '/(tabs)/progress' },
   { icon: <ScaleIcon />, label: 'Body Stats', route: '/stats/body' },
-  { icon: <CameraIcon />, label: 'Progress Photos', route: '/stats/photos' },
   { icon: <GearIcon />, label: 'Settings', route: '/settings' },
 ]
 

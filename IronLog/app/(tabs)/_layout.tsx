@@ -1,27 +1,19 @@
 import { Tabs } from 'expo-router'
 import React from 'react'
 import { View, Text, StyleSheet } from 'react-native'
-import Svg, { Path } from 'react-native-svg'
+import Svg, { Path, Circle } from 'react-native-svg'
 import { HapticTab } from '@/components/haptic-tab'
 import { Colors, FontSize, FontWeight } from '@/constants/theme'
+import { useSocialStore } from '@/stores/social-store'
 import type { Href } from 'expo-router'
 
-const TabIcon = React.memo(function TabIcon({ icon, label, focused }: { icon: React.ReactNode; label: string; focused: boolean }) {
+const TabIcon = React.memo(function TabIcon({ icon, focused, badge }: { icon: React.ReactNode; focused: boolean; badge?: boolean }) {
   return (
     <View style={tabStyles.container}>
-      <View style={{ opacity: focused ? 1 : 0.4 }}>{icon}</View>
-      <Text
-        style={[
-          tabStyles.label,
-          {
-            color: focused ? Colors.dark.accent : Colors.dark.textMuted,
-            fontWeight: focused ? FontWeight.bold : FontWeight.regular,
-          },
-        ]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
+      <View style={{ opacity: focused ? 1 : 0.4 }}>
+        {icon}
+        {badge && <View style={tabStyles.badge} />}
+      </View>
     </View>
   )
 })
@@ -60,14 +52,21 @@ const tabStyles = StyleSheet.create({
     justifyContent: 'center',
     width: 56,
   },
-  label: {
-    fontSize: 10,
-    marginTop: 3,
-    letterSpacing: 0.3,
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ff4444',
   },
 })
 
 export default function TabLayout() {
+  const { groups } = useSocialStore()
+  const hasUnread = groups.length > 0
+
   return (
     <Tabs
       screenOptions={{
@@ -78,8 +77,8 @@ export default function TabLayout() {
           backgroundColor: Colors.dark.tabBar,
           borderTopColor: Colors.dark.border,
           borderTopWidth: 1,
-          height: 72,
-          paddingBottom: 16,
+          height: 60,
+          paddingBottom: 12,
           paddingTop: 10,
         },
         tabBarShowLabel: false,
@@ -88,28 +87,28 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon={<HomeIcon />} label="Home" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={<HomeIcon />} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="program"
         options={{
           lazy: true,
-          tabBarIcon: ({ focused }) => <TabIcon icon={<PlanIcon />} label="Plans" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={<PlanIcon />} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="social"
         options={{
           lazy: true,
-          tabBarIcon: ({ focused }) => <TabIcon icon={<FeedIcon />} label="Groups" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={<FeedIcon />} focused={focused} badge={hasUnread} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           lazy: true,
-          tabBarIcon: ({ focused }) => <TabIcon icon={<ProfileIcon />} label="Profile" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon={<ProfileIcon />} focused={focused} />,
         }}
       />
       <Tabs.Screen
