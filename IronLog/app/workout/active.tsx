@@ -628,14 +628,14 @@ const styles = StyleSheet.create({
   // Tab bar
   tabBar: {
     flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.dark.border,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.xl,
   },
   tab: {
-    paddingVertical: Spacing.lg, paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg, paddingHorizontal: Spacing.xxl,
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   tabActive: { borderBottomColor: Colors.dark.accent },
-  tabText: { fontSize: FontSize.base, fontWeight: FontWeight.semibold, color: Colors.dark.textMuted },
+  tabText: { fontSize: FontSize.xl, fontWeight: FontWeight.semibold, color: Colors.dark.textMuted },
   tabTextActive: { color: Colors.dark.text },
 
   // Rest
@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
   },
   exerciseCardInfo: { flex: 1 },
   exerciseCounter: {
-    color: Colors.dark.accent, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.5,
+    color: Colors.dark.accent, fontSize: FontSize.xs, fontWeight: FontWeight.bold, letterSpacing: 1.5,
   },
   exerciseName: {
     color: Colors.dark.text, fontSize: FontSize.title, fontWeight: FontWeight.bold, marginTop: 2,
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
 
   // Sections
   section: { paddingHorizontal: Spacing.xl, marginTop: Spacing.lg },
-  sectionTitle: { color: Colors.dark.textMuted, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.5, marginBottom: Spacing.sm },
+  sectionTitle: { color: Colors.dark.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.bold, letterSpacing: 1.5, marginBottom: Spacing.md },
 
   // Up next
   upNextCard: {
@@ -839,8 +839,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.xxl,
-    paddingVertical: Spacing.lg,
-    paddingBottom: Spacing.xl,
+    paddingVertical: Spacing.xl,
+    paddingBottom: Spacing.xxl,
     backgroundColor: Colors.dark.surface,
     borderTopWidth: 1,
     borderTopColor: Colors.dark.border,
@@ -857,7 +857,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bottomTimerLabel: {
-    fontSize: 9,
+    fontSize: FontSize.xs,
     fontWeight: FontWeight.bold,
     color: Colors.dark.textMuted,
     letterSpacing: 1.5,

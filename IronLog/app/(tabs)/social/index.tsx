@@ -188,7 +188,7 @@ export default function GroupsListScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Social</Text>
+        <Text style={styles.headerTitle}>Groups</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.headerBtn} onPress={() => setJoinModalVisible(true)}>
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -396,11 +396,11 @@ const styles = StyleSheet.create({
   emptySubtitle: { color: Colors.dark.textMuted, fontSize: FontSize.lg, textAlign: 'center', marginBottom: Spacing.xxxl },
   emptyActions: { gap: Spacing.lg, width: '100%' },
   emptyButton: { borderRadius: BorderRadius.lg, overflow: 'hidden' },
-  emptyButtonGrad: { padding: Spacing.xl, alignItems: 'center', borderRadius: BorderRadius.lg },
+  emptyButtonGrad: { paddingVertical: Spacing.lg, paddingHorizontal: Spacing.xxl, alignItems: 'center', borderRadius: BorderRadius.lg },
   emptyButtonText: { color: Colors.dark.textOnAccent, fontSize: FontSize.xl, fontWeight: FontWeight.bold },
   emptyButtonOutline: {
     borderWidth: 1, borderColor: Colors.dark.accentBorder, borderRadius: BorderRadius.lg,
-    padding: Spacing.xl, alignItems: 'center',
+    paddingVertical: Spacing.lg, paddingHorizontal: Spacing.xxl, alignItems: 'center',
   },
   emptyButtonOutlineText: { color: Colors.dark.accent, fontSize: FontSize.xl, fontWeight: FontWeight.semibold },
   // Modal

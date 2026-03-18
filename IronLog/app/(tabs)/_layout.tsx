@@ -61,9 +61,9 @@ const tabStyles = StyleSheet.create({
     width: 56,
   },
   label: {
-    fontSize: 9,
+    fontSize: 10,
     marginTop: 3,
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
   },
 })
 

@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
 
   // ─── List view ───────────────────────────────────────────────────────
   listHeader: {
-    paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, paddingBottom: Spacing.lg,
+    paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.lg,
   },
   listTitle: {
     fontSize: FontSize.hero, fontWeight: FontWeight.extrabold, color: Colors.dark.text,
@@ -501,9 +501,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg,
     borderWidth: 1, borderColor: Colors.dark.border,
-    padding: Spacing.xl, marginBottom: Spacing.md, gap: Spacing.lg,
+    padding: Spacing.xl, paddingVertical: Spacing.xxl, marginBottom: Spacing.md, gap: Spacing.lg,
   },
-  programDot: { width: 12, height: 12, borderRadius: 6 },
+  programDot: { width: 4, height: 40, borderRadius: 2 },
   programInfo: { flex: 1 },
   programName: {
     fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.dark.text,

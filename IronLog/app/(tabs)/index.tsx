@@ -640,7 +640,7 @@ export default function HomeScreen() {
         {/* Recent Workouts — tappable */}
         <View style={styles.recentSection}>
           <TouchableOpacity onPress={() => router.push('/(tabs)/progress' as Href)} activeOpacity={0.7}>
-            <Text style={styles.sectionTitle}>RECENT</Text>
+            <Text style={[styles.sectionTitle, { fontSize: FontSize.base, color: Colors.dark.textSecondary }]}>RECENT</Text>
           </TouchableOpacity>
           {recentSessions.length > 0 ? (
             recentSessions.map((s, i) => (
@@ -982,18 +982,19 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.xxl, paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl, paddingTop: Spacing.sm, paddingBottom: Spacing.xs,
   },
   dateText: { color: Colors.dark.textMuted, fontSize: FontSize.md, fontWeight: FontWeight.semibold, letterSpacing: 1 },
   greeting: { color: Colors.dark.text, fontSize: FontSize.title, fontWeight: FontWeight.bold, marginTop: 2 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontWeight: FontWeight.extrabold, fontSize: FontSize.xl, color: Colors.dark.textOnAccent },
 
-  carousel: { marginBottom: Spacing.xl },
+  carousel: { marginBottom: Spacing.md },
   carouselContent: { paddingHorizontal: Spacing.xxl, gap: 12 },
   carouselCard: {
     backgroundColor: '#1a1a1a', borderRadius: BorderRadius.xxl,
     borderWidth: 1, borderColor: Colors.dark.border, padding: Spacing.xl,
+    overflow: 'hidden',
   },
   carouselLabel: {
     color: Colors.dark.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.bold,
@@ -1045,8 +1046,9 @@ const styles = StyleSheet.create({
   sectionTitle: { color: Colors.dark.textMuted, fontSize: FontSize.sm, fontWeight: FontWeight.bold, letterSpacing: 1.5, marginBottom: Spacing.md },
   recentCard: {
     backgroundColor: Colors.dark.surface, borderRadius: BorderRadius.lg,
-    padding: Spacing.xl, marginBottom: Spacing.sm,
+    padding: Spacing.xl, paddingVertical: Spacing.xl + 4, marginBottom: Spacing.sm,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderLeftWidth: 3, borderLeftColor: Colors.dark.accent,
   },
   recentName: { color: Colors.dark.text, fontSize: FontSize.lg, fontWeight: FontWeight.semibold },
   recentDate: { color: Colors.dark.textMuted, fontSize: FontSize.sm, marginTop: 2 },

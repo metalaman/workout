@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useSessionStore } from '@/stores/session-store'
 
 /* ── Mini SVG icons for nav cards ── */
-const iconSize = 22
+const iconSize = 26
 const iconColor = Colors.dark.accent
 
 const DumbbellIcon = () => (
@@ -191,12 +191,13 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: Spacing.xxl,
-    paddingVertical: Spacing.md,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.md,
   },
   headerTitle: {
     color: Colors.dark.text,
-    fontSize: FontSize.xl,
-    fontWeight: FontWeight.bold,
+    fontSize: FontSize.hero,
+    fontWeight: FontWeight.extrabold,
   },
   avatarSection: {
     alignItems: 'center',
@@ -243,16 +244,16 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    backgroundColor: Colors.dark.accentSurface,
+    backgroundColor: Colors.dark.surface,
     borderWidth: 1,
-    borderColor: Colors.dark.accentBorder,
+    borderColor: Colors.dark.border,
     borderRadius: BorderRadius.lg,
-    paddingVertical: Spacing.xl,
+    paddingVertical: Spacing.xxl,
     alignItems: 'center',
   },
   statValue: {
     color: Colors.dark.accent,
-    fontSize: FontSize.title,
+    fontSize: FontSize.hero,
     fontWeight: FontWeight.extrabold,
   },
   statLabel: {
@@ -292,9 +293,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: Colors.dark.surface,
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.lg,
-    marginBottom: Spacing.sm,
+    paddingVertical: Spacing.xl,
+    marginBottom: Spacing.md,
   },
   navCardLeft: {
     flexDirection: 'row',
@@ -303,17 +306,13 @@ const styles = StyleSheet.create({
   },
   navCardLabel: {
     color: Colors.dark.text,
-    fontSize: FontSize.base,
+    fontSize: FontSize.xl,
     fontWeight: FontWeight.semibold,
   },
   logoutSection: {
     paddingHorizontal: Spacing.xxl,
   },
   logoutButton: {
-    backgroundColor: 'rgba(255,107,107,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,107,0.3)',
-    borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: 'center',
   },
