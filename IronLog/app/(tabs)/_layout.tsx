@@ -42,6 +42,18 @@ const PlanIcon = React.memo(() => (
   </Svg>
 ))
 
+const StatsIcon = React.memo(() => (
+  <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none">
+    <Path d="M16 8v8m-4-5v5m-4-2v2m-2 4h16a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z" stroke={sc} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+))
+
+const NutritionIcon = React.memo(() => (
+  <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none">
+    <Path d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8zm4-6v2m4-2v2m4-2v2" stroke={sc} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+))
+
 const FeedIcon = React.memo(() => (
   <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none">
     <Path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm13 10v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75" stroke={sc} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
@@ -96,6 +108,13 @@ export default function TabLayout() {
         options={{
           lazy: true,
           tabBarIcon: ({ focused }) => <TabIcon icon={<PlanIcon />} label="Plans" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="nutrition"
+        options={{
+          lazy: true,
+          tabBarIcon: ({ focused }) => <TabIcon icon={<NutritionIcon />} label="Nutrition" focused={focused} />,
         }}
       />
       <Tabs.Screen

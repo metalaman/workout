@@ -19,6 +19,7 @@ import type {
   PersonalRecord, UserProfile, SocialPost,
   Group, GroupMember, GroupMessage,
   BodyStat, CardioSession, ProgressPhoto,
+  NutritionProfile, FoodLogEntry,
 } from '@/types'
 
 // ─── Programs ────────────────────────────────────────────────────────────────
@@ -802,6 +803,111 @@ export async function searchUsersByName(name: string): Promise<any[]> {
   ])
   return res.documents
 }
+
+// ─── Nutrition Profiles ──────────────────────────────────────────────────────
+
+/**
+ * Get a user's nutrition profile (onboarding data + calculated targets).
+ * @param userId - User ID
+ * @collection nutrition_profiles
+ */
+export async function getNutritionProfile(userId: string): Promise<NutritionProfile | null> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.NUTRITION_PROFILES, [
+    Query.equal('userId', userId),
+    Query.limit(1),
+  ])
+  return (res.documents[0] as unknown as NutritionProfile) ?? null
+}
+
+/**
+ * Create a nutrition profile after onboarding.
+ * @param data - Profile fields (without $id)
+ * @collection nutrition_profiles
+ */
+export async function createNutritionProfile(data: Omit<NutritionProfile, '$id'>): Promise<NutritionProfile> {
+  const doc = await databases.createDocument(DATABASE_ID, COLLECTION.NUTRITION_PROFILES, ID.unique(), data)
+  return doc as unknown as NutritionProfile
+}
+
+/**
+ * Update an existing nutrition profile.
+ * @param profileId - Document ID
+ * @param data - Partial fields to update
+ * @collection nutrition_profiles
+ */
+export async function updateNutritionProfile(
+  profileId: string,
+  data: Partial<NutritionProfile>
+): Promise<NutritionProfile> {
+  const doc = await databases.updateDocument(DATABASE_ID, COLLECTION.NUTRITION_PROFILES, profileId, data)
+  return doc as unknown as NutritionProfile
+}
+
+/** Delete a nutrition profile. @collection nutrition_profiles */
+export async function deleteNutritionProfile(profileId: string): Promise<void> {
+  await databases.deleteDocument(DATABASE_ID, COLLECTION.NUTRITION_PROFILES, profileId)
+}
+
+// ─── Food Logs ──────────────────────────────────────────────────────────────
+
+/**
+ * List food log entries for a user on a specific date.
+ * @param userId - User ID
+ * @param date - Date string YYYY-MM-DD
+ * @collection food_logs
+ */
+export async function listFoodLogs(userId: string, date: string): Promise<FoodLogEntry[]> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.FOOD_LOGS, [
+    Query.equal('userId', userId),
+    Query.equal('date', date),
+    Query.orderAsc('loggedAt'),
+  ])
+  return res.documents as unknown as FoodLogEntry[]
+}
+
+/**
+ * List food log entries for a user across a date range.
+ * @param userId - User ID
+ * @param dates - Array of YYYY-MM-DD strings
+ * @collection food_logs
+ */
+export async function listFoodLogsForDates(userId: string, dates: string[]): Promise<FoodLogEntry[]> {
+  const res = await databases.listDocuments(DATABASE_ID, COLLECTION.FOOD_LOGS, [
+    Query.equal('userId', userId),
+    Query.equal('date', dates),
+    Query.orderAsc('loggedAt'),
+    Query.limit(500),
+  ])
+  return res.documents as unknown as FoodLogEntry[]
+}
+
+/**
+ * Create a food log entry.
+ * @param data - Log entry fields (without $id)
+ * @collection food_logs
+ */
+export async function createFoodLog(data: Omit<FoodLogEntry, '$id'>): Promise<FoodLogEntry> {
+  const doc = await databases.createDocument(DATABASE_ID, COLLECTION.FOOD_LOGS, ID.unique(), data)
+  return doc as unknown as FoodLogEntry
+}
+
+/**
+ * Update a food log entry (e.g., change servings).
+ * @param logId - Document ID
+ * @param data - Partial fields to update
+ * @collection food_logs
+ */
+export async function updateFoodLog(logId: string, data: Partial<FoodLogEntry>): Promise<FoodLogEntry> {
+  const doc = await databases.updateDocument(DATABASE_ID, COLLECTION.FOOD_LOGS, logId, data)
+  return doc as unknown as FoodLogEntry
+}
+
+/** Delete a food log entry. @collection food_logs */
+export async function deleteFoodLog(logId: string): Promise<void> {
+  await databases.deleteDocument(DATABASE_ID, COLLECTION.FOOD_LOGS, logId)
+}
+
+// ─── Group Invitations (continued) ──────────────────────────────────────────
 
 /**
  * Join a group directly by group ID (used for accepting invitations).
