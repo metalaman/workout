@@ -1,0 +1,35 @@
+# Freestyle Workout — Pick exercises, start workout
+appId: host.exp.exponent
+---
+- launchApp
+- tapOn: "Skip Login"
+- waitForAnimationToEnd
+
+# Tap FAB on home
+- tapOn: "+"
+- waitForAnimationToEnd
+
+# Select Freestyle
+- tapOn: "Freestyle"
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/06-freestyle-picker
+
+# Pick exercises
+- tapOn: "Bench Press"
+- tapOn: "Barbell Squat"
+- takeScreenshot: screenshots/06-exercises-selected
+
+# Start workout
+- tapOn: "Start Workout"
+- waitForAnimationToEnd
+
+# Verify active workout screen loads with selected exercises
+- assertVisible: "Bench Press"
+- takeScreenshot: screenshots/06-freestyle-active
+
+# End workout
+- tapOn: "End"
+- waitForAnimationToEnd
+- tapOn: "End Workout"
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/06-freestyle-summary

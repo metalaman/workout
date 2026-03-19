@@ -1,0 +1,38 @@
+# Exercise Library — Search, Filter, Detail
+appId: host.exp.exponent
+---
+- launchApp
+- tapOn: "Skip Login"
+- waitForAnimationToEnd
+
+# Navigate to Profile → Exercise Library
+- tapOn:
+    index: 4  # Profile tab
+- waitForAnimationToEnd
+- tapOn: "Exercise Library"
+- waitForAnimationToEnd
+
+# Verify library loads
+- assertVisible: "Search exercises"
+- takeScreenshot: screenshots/05-library-list
+
+# Filter by muscle group
+- tapOn: "Chest"
+- waitForAnimationToEnd
+- assertVisible: "Bench Press"
+- takeScreenshot: screenshots/05-library-chest-filter
+
+# Search for exercise
+- tapOn: "Search exercises"
+- inputText: "Squat"
+- waitForAnimationToEnd
+- assertVisible: "Barbell Squat"
+- takeScreenshot: screenshots/05-library-search
+
+# Open exercise detail
+- tapOn: "Barbell Squat"
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/05-exercise-detail
+
+# Go back
+- back

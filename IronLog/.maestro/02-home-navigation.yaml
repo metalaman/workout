@@ -1,0 +1,43 @@
+# Home Screen — Verify all sections render
+appId: host.exp.exponent
+---
+- launchApp
+- tapOn: "Skip Login"
+- waitForAnimationToEnd
+
+# Verify home screen sections
+- assertVisible: "STRENGTH SCORE"
+- assertVisible: "THIS WEEK"
+- assertVisible: "RECENT"
+- takeScreenshot: screenshots/02-home-top
+
+# Scroll to see recent workouts
+- scrollDown
+
+# Verify tab bar icons (4 tabs + nutrition)
+- takeScreenshot: screenshots/02-home-scrolled
+
+# Navigate to each tab
+- tapOn:
+    index: 1  # Plans tab (2nd icon)
+- waitForAnimationToEnd
+- assertVisible: "My Programs"
+- takeScreenshot: screenshots/02-plans-tab
+
+- tapOn:
+    index: 3  # Groups tab
+- waitForAnimationToEnd
+- assertVisible: "Groups"
+- takeScreenshot: screenshots/02-groups-tab
+
+- tapOn:
+    index: 4  # Profile tab
+- waitForAnimationToEnd
+- assertVisible: "Exercise Library"
+- assertVisible: "Stats & Progress"
+- takeScreenshot: screenshots/02-profile-tab
+
+# Return home
+- tapOn:
+    index: 0
+- waitForAnimationToEnd

@@ -1,0 +1,41 @@
+# Custom Exercise — Create and Verify in Library
+appId: host.exp.exponent
+---
+- launchApp
+- tapOn: "Skip Login"
+- waitForAnimationToEnd
+
+# Navigate to Profile → Exercise Library
+- tapOn:
+    index: 4  # Profile tab
+- waitForAnimationToEnd
+- tapOn: "Exercise Library"
+- waitForAnimationToEnd
+
+# Tap FAB to create custom exercise
+- tapOn: "+"
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/08-custom-exercise-modal
+
+# Fill in exercise details
+- tapOn: "Exercise Name"
+- inputText: "Dragon Flag"
+
+# Select primary muscle
+- tapOn: "Core"
+
+# Create
+- tapOn: "Create Exercise"
+- waitForAnimationToEnd
+
+# Verify custom exercise appears with badge
+- scrollDown
+- assertVisible: "Dragon Flag"
+- assertVisible: "Custom"
+- takeScreenshot: screenshots/08-custom-exercise-created
+
+# Tap to verify detail
+- tapOn: "Dragon Flag"
+- waitForAnimationToEnd
+- assertVisible: "Dragon Flag"
+- takeScreenshot: screenshots/08-custom-exercise-detail

@@ -1,0 +1,33 @@
+# Active Workout Flow — Start, Log Sets, End
+appId: host.exp.exponent
+---
+- launchApp
+- tapOn: "Skip Login"
+- waitForAnimationToEnd
+
+# Start workout from home screen (Today's Workout card or FAB)
+- tapOn: "▶"
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/04-workout-started
+
+# Verify active workout UI
+- assertVisible: "SET"
+- assertVisible: "LBS"
+- assertVisible: "REPS"
+
+# Complete first set (tap the checkmark/complete button)
+- tapOn: "✓"
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/04-set-completed
+
+# End workout
+- tapOn: "End"
+- waitForAnimationToEnd
+
+# Confirm end workout (alert)
+- tapOn: "End Workout"
+- waitForAnimationToEnd
+
+# Verify summary screen
+- assertVisible: "Workout Complete"
+- takeScreenshot: screenshots/04-workout-summary

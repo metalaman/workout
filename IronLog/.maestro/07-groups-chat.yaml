@@ -1,0 +1,38 @@
+# Groups — Create Group, View Chat
+appId: host.exp.exponent
+---
+- launchApp
+- tapOn: "Skip Login"
+- waitForAnimationToEnd
+
+# Navigate to Groups tab
+- tapOn:
+    index: 3  # Groups tab
+- waitForAnimationToEnd
+- assertVisible: "Groups"
+- takeScreenshot: screenshots/07-groups-empty
+
+# Create a group
+- tapOn: "Create Group"
+- waitForAnimationToEnd
+- tapOn: "Group Name"
+- inputText: "E2E Test Group"
+- tapOn: "Create"
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/07-group-created
+
+# Open group chat
+- tapOn: "E2E Test Group"
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/07-group-chat
+
+# Send a message
+- tapOn: "Type a message"
+- inputText: "Hello from E2E test!"
+- tapOn: "Send"  # or send icon
+- waitForAnimationToEnd
+- assertVisible: "Hello from E2E test!"
+- takeScreenshot: screenshots/07-message-sent
+
+# Go back
+- back

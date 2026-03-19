@@ -1,0 +1,41 @@
+# Create Program Flow
+appId: host.exp.exponent
+---
+- launchApp
+- tapOn: "Skip Login"
+- waitForAnimationToEnd
+
+# Navigate to Plans
+- tapOn:
+    index: 1  # Plans tab
+- waitForAnimationToEnd
+- assertVisible: "My Programs"
+
+# Tap FAB to create new program
+- tapOn: "+"
+- waitForAnimationToEnd
+
+# Fill in program name
+- tapOn: "Program Name"
+- inputText: "Test Program E2E"
+
+# Set days per week
+- tapOn: "Days/Week"
+- inputText: "4"
+
+# Create
+- tapOn: "Create"
+- waitForAnimationToEnd
+- takeScreenshot: screenshots/03-program-created
+
+# Add a day
+- tapOn: "Add Day"
+- waitForAnimationToEnd
+- assertVisible: "Day 1"
+- takeScreenshot: screenshots/03-day-added
+
+# Verify program appears in list
+- back
+- waitForAnimationToEnd
+- assertVisible: "Test Program E2E"
+- takeScreenshot: screenshots/03-program-in-list

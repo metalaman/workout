@@ -1,0 +1,10 @@
+# Auth Flow — Skip Login (Dev Mode)
+appId: host.exp.exponent
+---
+- launchApp
+- assertVisible: "IRONLOG"
+- assertVisible: "Sign In"
+- tapOn: "Skip Login"
+- waitForAnimationToEnd
+- assertVisible: "STRENGTH SCORE"
+- takeScreenshot: screenshots/01-home-after-login
