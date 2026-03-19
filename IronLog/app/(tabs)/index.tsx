@@ -17,6 +17,9 @@ import { formatDate, getDayOfWeek, getRelativeTime, formatVolume, calculate1RM, 
 import { createWorkoutSession, listProgramDays } from '@/lib/database'
 import { ExerciseIcon, MUSCLE_GROUP_COLORS } from '@/components/exercise-icon'
 import { StrengthScoreGauge, StrengthBalanceGauge } from '@/components/strength-gauges'
+import { MetricsCard } from '@/components/home/MetricsCard'
+import { TodayWorkout } from '@/components/home/TodayWorkout'
+import { RecentWorkouts } from '@/components/home/RecentWorkouts'
 import type { ActiveWorkoutExercise, Program, ProgramDay } from '@/types'
 
 
@@ -55,7 +58,6 @@ export default function HomeScreen() {
   const [selectedPickerProgram, setSelectedPickerProgram] = useState<Program | null>(null)
   const [pickerDays, setPickerDays] = useState<ProgramDay[]>([])
   const [loadingDays, setLoadingDays] = useState(false)
-  const [metricCard, setMetricCard] = useState<0 | 1>(0)
 
   useEffect(() => {
     if (user?.$id) {
@@ -387,27 +389,8 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Metrics Card (tap dots to switch) */}
-        <View style={styles.carouselSection}>
-          <View style={styles.carouselCard}>
-            {metricCard === 0 ? (
-              <>
-                <Text style={styles.carouselLabel}>STRENGTH SCORE</Text>
-                <StrengthScoreGauge score={strengthScore.score} delta={strengthScore.delta} />
-              </>
-            ) : (
-              <StrengthBalanceGauge {...strengthBalance} />
-            )}
-          </View>
-          <View style={styles.dotRow}>
-            <TouchableOpacity onPress={() => setMetricCard(0)} hitSlop={8}>
-              <View style={[styles.dot, metricCard === 0 && styles.dotActive]} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setMetricCard(1)} hitSlop={8}>
-              <View style={[styles.dot, metricCard === 1 && styles.dotActive]} />
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Metrics Card */}
+        <MetricsCard strengthScore={strengthScore} strengthBalance={strengthBalance} />
 
         {/* Weekly Calendar — swipeable with calendar picker */}
         <View style={styles.weekSection}>
@@ -577,28 +560,14 @@ export default function HomeScreen() {
         </View>
 
         {/* Today's Workout */}
-        {todaysDay && selectedDayIndex === null && (
-          <TouchableOpacity activeOpacity={0.9} style={styles.todayContainer} onPress={handleStartStrength}>
-            <LinearGradient colors={['#e8ff47', '#7fff00']} style={styles.todayCard}>
-              <View style={styles.todayInfo}>
-                <Text style={styles.todayLabel}>TODAY'S WORKOUT</Text>
-                <Text style={styles.todayTitle}>{todaysDay.name}</Text>
-                <Text style={styles.todaySubtitle}>{exerciseCount} exercises · ~45 min</Text>
-                {topLift && (
-                  <View style={styles.topLiftRow}>
-                    <View style={[styles.topLiftBadge, { backgroundColor: 'rgba(0,0,0,0.1)' }]}>
-                      <Text style={styles.topLiftText}>
-                        Top: {topLift.pct}% 1RM {topLift.name}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-              <View style={styles.playButton}>
-                <Text style={styles.playIcon}>▶</Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
+        {selectedDayIndex === null && (
+          <TodayWorkout
+            todaysDay={todaysDay}
+            exerciseCount={exerciseCount}
+            currentProgram={currentProgram}
+            topLift={topLift}
+            onStart={handleStartStrength}
+          />
         )}
 
         {/* Top PRs */}
@@ -630,65 +599,14 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Recent Workouts — tappable */}
-        <View style={styles.recentSection}>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/progress' as Href)} activeOpacity={0.7}>
-            <Text style={[styles.sectionTitle, { fontSize: FontSize.base, color: Colors.dark.textSecondary }]}>RECENT</Text>
-          </TouchableOpacity>
-          {recentSessions.length > 0 ? (
-            recentSessions.map((s, i) => (
-              <TouchableOpacity
-                key={i}
-                style={styles.recentCard}
-                onPress={() => handleRecentWorkoutPress(s.$id)}
-                activeOpacity={0.7}
-              >
-                <View>
-                  <Text style={styles.recentName}>{s.programDayName}</Text>
-                  <Text style={styles.recentDate}>
-                    {s.completedAt ? getRelativeTime(s.completedAt) : 'In progress'}
-                  </Text>
-                </View>
-                <View style={styles.recentRight}>
-                  <Text style={styles.recentVolume}>
-                    {s.totalVolume > 0 ? `${formatVolume(s.totalVolume)} lbs` : '—'}
-                  </Text>
-                  <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                    <Path d="M9 18l6-6-6-6" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                  </Svg>
-                </View>
-              </TouchableOpacity>
-            ))
-          ) : days.length > 0 ? (
-            days.slice(0, 3).map((d, i) => (
-              <TouchableOpacity
-                key={i}
-                style={styles.recentCard}
-                onPress={() => router.push('/(tabs)/program' as Href)}
-                activeOpacity={0.7}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                  <ExerciseIcon
-                    exerciseName={d.exercises[0]?.exerciseId}
-                    size={36}
-                    color={currentProgram?.color || Colors.dark.accent}
-                  />
-                  <View>
-                    <Text style={styles.recentName}>{d.name}</Text>
-                    <Text style={styles.recentDate}>{d.exercises.length} exercises</Text>
-                  </View>
-                </View>
-                <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                  <Path d="M9 18l6-6-6-6" stroke={Colors.dark.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={styles.recentCard}>
-              <Text style={styles.recentDate}>No workouts yet — create a program to get started!</Text>
-            </View>
-          )}
-        </View>
+        {/* Recent Workouts */}
+        <RecentWorkouts
+          recentSessions={recentSessions}
+          days={days}
+          currentProgram={currentProgram}
+          onWorkoutPress={handleRecentWorkoutPress}
+          onProgramPress={() => router.push('/(tabs)/program' as Href)}
+        />
 
         <View style={{ height: 80 }} />
       </ScrollView>

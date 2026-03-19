@@ -205,8 +205,8 @@ export default function ActiveWorkoutScreen() {
               })
               const newPRs: PersonalRecord[] = []
               for (const ex of completedExercises) {
-                // Skip exercises with no ID or no completed sets
-                if (!ex?.exerciseId || !ex?.sets?.length) continue
+                // Skip exercises with no ID, no name, or no sets
+                if (!ex?.exerciseId || !ex?.exerciseName || !ex?.sets?.length) continue
                 const completedSets = ex.sets.filter(
                   (s) => s?.isCompleted && typeof s.weight === 'number' && s.weight > 0 && typeof s.reps === 'number' && s.reps > 0
                 )
