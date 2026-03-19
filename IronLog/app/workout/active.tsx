@@ -205,19 +205,23 @@ export default function ActiveWorkoutScreen() {
               })
               const newPRs: PersonalRecord[] = []
               for (const ex of completedExercises) {
-                for (const s of ex.sets) {
-                  if (s.isCompleted && s.weight > 0) {
-                    try {
-                      const result = await db.checkAndUpdatePR(
-                        user.$id, ex.exerciseId, ex.exerciseName, s.weight, s.reps
-                      )
-                      if (result.isNewPR && result.record) {
-                        if (!newPRs.find((p) => p.exerciseId === ex.exerciseId)) {
-                          newPRs.push(result.record)
-                        }
+                // Skip exercises with no ID or no completed sets
+                if (!ex?.exerciseId || !ex?.sets?.length) continue
+                const completedSets = ex.sets.filter(
+                  (s) => s?.isCompleted && typeof s.weight === 'number' && s.weight > 0 && typeof s.reps === 'number' && s.reps > 0
+                )
+                if (completedSets.length === 0) continue
+                for (const s of completedSets) {
+                  try {
+                    const result = await db.checkAndUpdatePR(
+                      user.$id, ex.exerciseId, ex.exerciseName, s.weight, s.reps
+                    )
+                    if (result?.isNewPR && result.record) {
+                      if (!newPRs.find((p) => p.exerciseId === ex.exerciseId)) {
+                        newPRs.push(result.record)
                       }
-                    } catch { /* continue */ }
-                  }
+                    }
+                  } catch { /* continue */ }
                 }
               }
               if (profile?.$id) {
