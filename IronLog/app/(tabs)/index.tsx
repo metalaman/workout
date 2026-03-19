@@ -669,7 +669,7 @@ export default function HomeScreen() {
                     ]}>
                       <Text style={[
                         styles.monthCellText,
-                        cell.workout && { color: '#000', fontWeight: '700' as any },
+                        cell.workout && { color: Colors.dark.black, fontWeight: '700' as const },
                         cell.isToday && !cell.workout && { color: Colors.dark.accent },
                       ]}>
                         {cell.date}
@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
 
   carouselSection: { paddingHorizontal: Spacing.xxl, marginBottom: Spacing.md },
   carouselCard: {
-    backgroundColor: '#1a1a1a', borderRadius: BorderRadius.xxl,
+    backgroundColor: Colors.dark.card, borderRadius: BorderRadius.xxl,
     borderWidth: 1, borderColor: Colors.dark.border, padding: Spacing.lg,
     overflow: 'hidden',
   },
@@ -984,7 +984,7 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end',
   },
   bottomSheet: {
-    backgroundColor: '#1a1a1a', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: Colors.dark.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: Spacing.xxl, paddingBottom: 40,
   },
   sheetHandle: {
@@ -1067,7 +1067,7 @@ const styles = StyleSheet.create({
 
   // Month picker
   monthPickerSheet: {
-    backgroundColor: '#2a2a2a',
+    backgroundColor: Colors.dark.cardLight,
     borderRadius: BorderRadius.xxl,
     padding: Spacing.xxl,
     marginHorizontal: 20,
@@ -1146,11 +1146,11 @@ const styles = StyleSheet.create({
   },
   selectedDayDate: {
     fontSize: FontSize.sm,
-    fontWeight: FontWeight.semibold as any,
+    fontWeight: FontWeight.semibold,
     color: Colors.dark.textMuted,
     letterSpacing: 0.5,
     marginBottom: Spacing.md,
-    textTransform: 'uppercase' as any,
+    textTransform: 'uppercase' as const,
   },
   selectedDayHeader: {
     flexDirection: 'row' as const,
@@ -1165,13 +1165,13 @@ const styles = StyleSheet.create({
   },
   selectedDayName: {
     fontSize: FontSize.xxl,
-    fontWeight: FontWeight.bold as any,
+    fontWeight: FontWeight.bold,
     color: Colors.dark.text,
     flex: 1,
   },
   selectedDayBadge: {
     fontSize: FontSize.xs,
-    fontWeight: FontWeight.bold as any,
+    fontWeight: FontWeight.bold,
     color: Colors.dark.accent,
     letterSpacing: 1,
   },
@@ -1187,7 +1187,7 @@ const styles = StyleSheet.create({
   },
   selectedDayStatValue: {
     fontSize: FontSize.title,
-    fontWeight: FontWeight.bold as any,
+    fontWeight: FontWeight.bold,
     color: Colors.dark.text,
   },
   selectedDayStatLabel: {
@@ -1198,7 +1198,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.base,
     color: Colors.dark.textSecondary,
     marginBottom: Spacing.md,
-    fontStyle: 'italic' as any,
+    fontStyle: 'italic' as const,
   },
   selectedDayExercises: {
     gap: 8,
@@ -1217,7 +1217,7 @@ const styles = StyleSheet.create({
   selectedDayExSets: {
     fontSize: FontSize.sm,
     color: Colors.dark.textMuted,
-    fontWeight: FontWeight.semibold as any,
+    fontWeight: FontWeight.semibold,
   },
   selectedDayMore: {
     fontSize: FontSize.sm,
@@ -1235,7 +1235,7 @@ const styles = StyleSheet.create({
   },
   selectedDayViewText: {
     fontSize: FontSize.base,
-    fontWeight: FontWeight.semibold as any,
+    fontWeight: FontWeight.semibold,
     color: Colors.dark.textSecondary,
   },
 })

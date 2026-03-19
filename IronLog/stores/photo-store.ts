@@ -19,7 +19,8 @@ export const usePhotoStore = create<PhotoState>((set) => ({
     try {
       const photos = await db.listProgressPhotos(userId)
       set({ photos, isLoading: false })
-    } catch {
+    } catch (e) {
+      console.warn('[PhotoStore] loadPhotos failed:', e)
       set({ isLoading: false })
     }
   },
@@ -28,7 +29,8 @@ export const usePhotoStore = create<PhotoState>((set) => ({
     try {
       const photo = await db.createProgressPhoto(data)
       set((s) => ({ photos: [photo, ...s.photos] }))
-    } catch {
+    } catch (e) {
+      console.warn('[PhotoStore] addPhoto failed:', e)
       const local: ProgressPhoto = { ...data, $id: `local-${Date.now()}` }
       set((s) => ({ photos: [local, ...s.photos] }))
     }
@@ -37,7 +39,7 @@ export const usePhotoStore = create<PhotoState>((set) => ({
   removePhoto: async (id: string) => {
     try {
       await db.deleteProgressPhoto(id)
-    } catch {}
+    } catch (e) { console.warn('[PhotoStore] removePhoto failed:', e) }
     set((s) => ({ photos: s.photos.filter((p) => p.$id !== id) }))
   },
 }))

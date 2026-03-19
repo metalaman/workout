@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar'
 import { View, ActivityIndicator, StyleSheet } from 'react-native'
 import { useAuthStore } from '@/stores/auth-store'
 import { Colors } from '@/constants/theme'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthStore()
@@ -41,16 +42,18 @@ export default function RootLayout() {
   }, [])
 
   return (
-    <AuthGate>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.dark.background } }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="workout" options={{ animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="profile" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="stats" options={{ animation: 'slide_from_right' }} />
-      </Stack>
-      <StatusBar style="light" />
-    </AuthGate>
+    <ErrorBoundary>
+      <AuthGate>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.dark.background } }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="workout" options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="profile" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="stats" options={{ animation: 'slide_from_right' }} />
+        </Stack>
+        <StatusBar style="light" />
+      </AuthGate>
+    </ErrorBoundary>
   )
 }
 

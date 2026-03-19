@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   },
   colorCircleSelected: {
     borderColor: '#ffffff',
-    shadowColor: '#fff', shadowOffset: { width: 0, height: 0 },
+    shadowColor: Colors.dark.white, shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3, shadowRadius: 8,
   },
   colorCheck: {

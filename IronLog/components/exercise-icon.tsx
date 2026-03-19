@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react'
 import Svg, { Path, Ellipse, Rect, Circle } from 'react-native-svg'
+import { Colors } from '@/constants/theme'
 
 interface ExerciseIconProps {
   exerciseName?: string
@@ -749,7 +750,7 @@ export const ExerciseIcon = React.memo(function ExerciseIcon({
   exerciseId = '',
   muscleGroup = '',
   size = 36,
-  color = '#ff4444',
+  color = Colors.dark.dangerDark,
 }: ExerciseIconProps) {
   const key = toKey(exerciseName || exerciseId)
 

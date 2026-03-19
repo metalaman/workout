@@ -17,13 +17,13 @@ async function loadLastRead(): Promise<Record<string, string>> {
   try {
     const raw = await SecureStore.getItemAsync(LAST_READ_KEY)
     return raw ? JSON.parse(raw) : {}
-  } catch { return {} }
+  } catch (e) { console.warn('[SocialStore] loadTimestamps failed:', e); return {} }
 }
 
 async function saveLastRead(map: Record<string, string>) {
   try {
     await SecureStore.setItemAsync(LAST_READ_KEY, JSON.stringify(map))
-  } catch {}
+  } catch (e) { console.warn('[SocialStore] saveTimestamps failed:', e) }
 }
 
 interface SocialState {
@@ -87,7 +87,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
         try {
           const lastMsg = await db.getLastGroupMessage(g.$id)
           if (lastMsg?.$createdAt) lastMessageTimestamps[g.$id] = lastMsg.$createdAt
-        } catch {}
+        } catch (e) { console.warn("[SocialStore] getLastMsg failed:", e) }
       }))
       // Compute unread
       const hasUnread = groups.some(g => {
@@ -241,7 +241,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       try {
         const lastMsg = await db.getLastGroupMessage(g.$id)
         if (lastMsg?.$createdAt) lastMessageTimestamps[g.$id] = lastMsg.$createdAt
-      } catch {}
+      } catch (e) { console.warn("[SocialStore] getLastMsg failed:", e) }
     }))
     const hasUnread = groups.some(g => {
       const lastMsg = lastMessageTimestamps[g.$id]

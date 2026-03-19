@@ -101,7 +101,7 @@ export default function FreestyleWorkoutScreen() {
           notes: '',
         })
         sessionId = session.$id
-      } catch {}
+      } catch (e) { console.warn('[Freestyle] parse exercises failed:', e) }
     }
 
     // Start workout using the same store as programmed workouts
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: 'rgba(255,68,68,0.15)', alignItems: 'center', justifyContent: 'center',
   },
-  removeBtnText: { color: '#ff4444', fontSize: FontSize.sm, fontWeight: FontWeight.bold },
+  removeBtnText: { color: Colors.dark.dangerDark, fontSize: FontSize.sm, fontWeight: FontWeight.bold },
 
   configRow: { flexDirection: 'row', marginTop: Spacing.md, gap: Spacing.xl },
   configItem: { flex: 1 },
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   // Picker modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   pickerSheet: {
-    backgroundColor: '#2a2a2a', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: Colors.dark.cardLight, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: Spacing.xxl, paddingBottom: 40, maxHeight: '80%',
   },
   sheetHandle: {

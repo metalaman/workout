@@ -573,7 +573,7 @@ export default function ActiveWorkoutScreen() {
           activeOpacity={0.7}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M18 6L6 18M6 6l12 12" stroke="#ff4444" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M18 6L6 18M6 6l12 12" stroke=Colors.dark.dangerDark strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </TouchableOpacity>
 

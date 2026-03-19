@@ -39,7 +39,7 @@ export default function ExerciseDetailScreen() {
       const exId = exercise.name.toLowerCase().replace(/\s+/g, '-')
       getExerciseHistory(user.$id, exId, 20)
         .then(setHistory)
-        .catch(() => {})
+        .catch((e) => console.warn('[ExerciseDetail] load failed:', e))
     }
   }, [user?.$id, exercise])
 

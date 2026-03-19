@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   calendarSheet: {
-    backgroundColor: '#2a2a2a',
+    backgroundColor: Colors.dark.cardLight,
     borderRadius: BorderRadius.xxl,
     padding: Spacing.xxl,
     width: '85%',

@@ -338,10 +338,10 @@ const styles = StyleSheet.create({
   tabText: { color: Colors.dark.textMuted, fontSize: FontSize.lg, fontWeight: FontWeight.semibold },
   tabTextActive: { color: Colors.dark.text },
   badge: {
-    backgroundColor: '#ff4444', borderRadius: 10, minWidth: 20, height: 20,
+    backgroundColor: Colors.dark.dangerDark, borderRadius: 10, minWidth: 20, height: 20,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
   },
-  badgeText: { color: '#fff', fontSize: 11, fontWeight: FontWeight.bold },
+  badgeText: { color: Colors.dark.white, fontSize: 11, fontWeight: FontWeight.bold },
   // Lists
   listContent: { paddingHorizontal: Spacing.xxl, paddingBottom: Spacing.xxxxl, gap: Spacing.md },
   emptyContainer: { flex: 1 },
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', padding: Spacing.xxxxl,
   },
   modalContent: {
-    backgroundColor: '#1a1a1a', borderRadius: BorderRadius.xxl, padding: Spacing.xxxl, width: '100%',
+    backgroundColor: Colors.dark.card, borderRadius: BorderRadius.xxl, padding: Spacing.xxxl, width: '100%',
   },
   modalTitle: { color: Colors.dark.text, fontSize: FontSize.title, fontWeight: FontWeight.bold, marginBottom: Spacing.sm },
   modalSubtitle: { color: Colors.dark.textMuted, fontSize: FontSize.lg, marginBottom: Spacing.xxl },

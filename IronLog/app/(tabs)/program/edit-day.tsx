@@ -42,7 +42,7 @@ export default function EditDayScreen() {
   useEffect(() => {
     if (isNew && !builderDays[dayIndex] && !didInit.current) {
       didInit.current = true
-      addDay(dayName).catch(() => {})
+      addDay(dayName).catch((e) => console.warn('[EditDay] addDay failed:', e))
     }
   }, [isNew, dayIndex, builderDays, addDay, dayName])
 

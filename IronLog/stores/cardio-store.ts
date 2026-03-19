@@ -19,7 +19,8 @@ export const useCardioStore = create<CardioState>((set) => ({
     try {
       const sessions = await db.listCardioSessions(userId)
       set({ sessions, isLoading: false })
-    } catch {
+    } catch (e) {
+      console.warn('[CardioStore] load failed:', e)
       set({ isLoading: false })
     }
   },
@@ -37,7 +38,7 @@ export const useCardioStore = create<CardioState>((set) => ({
   removeSession: async (id: string) => {
     try {
       await db.deleteCardioSession(id)
-    } catch {}
+    } catch (e) { console.warn("[Store] operation failed:", e) }
     set((s) => ({ sessions: s.sessions.filter((cs) => cs.$id !== id) }))
   },
 }))

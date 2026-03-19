@@ -142,7 +142,7 @@ export default function GroupChatScreen() {
 
   useEffect(() => {
     if (groupId) {
-      db.getGroup(groupId).then(setGroup).catch(() => {})
+      db.getGroup(groupId).then(setGroup).catch((e) => console.warn('[GroupChat] loadGroup failed:', e))
       loadMessages(groupId)
       loadMembers(groupId)
       // Mark this group as read
@@ -400,7 +400,7 @@ export default function GroupChatScreen() {
               />
               {isUploading && (
                 <View style={imageStyles.uploadOverlay}>
-                  <ActivityIndicator color="#fff" size="large" />
+                  <ActivityIndicator color=Colors.dark.white size="large" />
                 </View>
               )}
             </TouchableOpacity>
@@ -442,7 +442,7 @@ export default function GroupChatScreen() {
     const isWorkout = msgType === 'workout_share'
     let workoutData: WorkoutShareData | null = null
     if (isWorkout && item.workoutData) {
-      try { workoutData = JSON.parse(item.workoutData) } catch {}
+      try { workoutData = JSON.parse(item.workoutData) } catch (e) { console.warn('[GroupChat] parse workoutData failed:', e) }
     }
 
     // Text message (default)
@@ -657,7 +657,7 @@ export default function GroupChatScreen() {
         <View style={viewerStyles.overlay}>
           <TouchableOpacity style={viewerStyles.closeBtn} onPress={() => setViewerImage(null)}>
             <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-              <Path d="M18 6L6 18M6 6l12 12" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" />
+              <Path d="M18 6L6 18M6 6l12 12" stroke=Colors.dark.white strokeWidth={2.5} strokeLinecap="round" />
             </Svg>
           </TouchableOpacity>
           {viewerImage && (
@@ -760,7 +760,7 @@ const stickerStyles = StyleSheet.create({
 
 const panelStyles = StyleSheet.create({
   container: {
-    backgroundColor: '#1a1a1a', borderTopWidth: 1, borderTopColor: Colors.dark.border,
+    backgroundColor: Colors.dark.card, borderTopWidth: 1, borderTopColor: Colors.dark.border,
     paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.md,
     maxHeight: 280,
   },

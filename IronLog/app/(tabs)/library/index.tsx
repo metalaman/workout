@@ -63,7 +63,7 @@ export default function LibraryScreen() {
           instructions: d.instructions || '',
           isCustom: true,
         })))
-      }).catch(() => {})
+      }).catch((e) => console.warn('[Library] loadCustomExercises failed:', e))
     }
   }, [user?.$id])
 

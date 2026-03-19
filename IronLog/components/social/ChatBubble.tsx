@@ -66,7 +66,7 @@ export const ChatBubble = React.memo(({ message, isOwn, onImagePress }: Props) =
             <Image source={{ uri: mediaUrl }} style={styles.image} resizeMode="cover" />
             {isUploading && (
               <View style={styles.uploadOverlay}>
-                <ActivityIndicator color="#fff" size="large" />
+                <ActivityIndicator color=Colors.dark.white size="large" />
               </View>
             )}
           </TouchableOpacity>
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     width: 28, height: 28, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center', marginBottom: 16,
   },
-  avatarText: { color: '#fff', fontSize: FontSize.xs, fontWeight: FontWeight.bold },
+  avatarText: { color: Colors.dark.white, fontSize: FontSize.xs, fontWeight: FontWeight.bold },
   senderName: {
     fontSize: FontSize.xs, color: Colors.dark.textMuted,
     marginBottom: 2, marginLeft: 4,

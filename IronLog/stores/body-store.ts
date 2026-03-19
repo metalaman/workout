@@ -19,7 +19,8 @@ export const useBodyStore = create<BodyState>((set) => ({
     try {
       const stats = await db.listBodyStats(userId)
       set({ stats, isLoading: false })
-    } catch {
+    } catch (e) {
+      console.warn('[BodyStore] load failed:', e)
       set({ isLoading: false })
     }
   },
@@ -37,7 +38,7 @@ export const useBodyStore = create<BodyState>((set) => ({
   removeStat: async (id: string) => {
     try {
       await db.deleteBodyStat(id)
-    } catch {}
+    } catch (e) { console.warn("[Store] operation failed:", e) }
     set((s) => ({ stats: s.stats.filter((st) => st.$id !== id) }))
   },
 }))

@@ -28,7 +28,7 @@ export default function MembersScreen() {
   useEffect(() => {
     if (groupId) {
       loadMembers(groupId)
-      db.getGroup(groupId).then(setGroup).catch(() => {})
+      db.getGroup(groupId).then(setGroup).catch((e) => console.warn('[Members] loadGroup failed:', e))
     }
   }, [groupId])
 
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   inviteModalContent: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: Colors.dark.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: Spacing.xxl,

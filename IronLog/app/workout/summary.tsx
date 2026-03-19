@@ -88,7 +88,7 @@ export default function WorkoutSummaryScreen() {
       )
       setShared(true)
       setShareModalVisible(false)
-    } catch {} finally { setSharing(false) }
+    } catch (e) { console.warn('[Summary] share failed:', e) } finally { setSharing(false) }
   }
 
   const handleDone = () => {
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalContent: {
-    backgroundColor: '#1a1a1a', borderTopLeftRadius: BorderRadius.xxl,
+    backgroundColor: Colors.dark.card, borderTopLeftRadius: BorderRadius.xxl,
     borderTopRightRadius: BorderRadius.xxl, maxHeight: '70%', padding: Spacing.xxl,
   },
   modalHeader: {

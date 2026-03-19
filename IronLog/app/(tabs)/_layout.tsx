@@ -71,7 +71,7 @@ const tabStyles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#ff4444',
+    backgroundColor: Colors.dark.dangerDark,
   },
 })
 

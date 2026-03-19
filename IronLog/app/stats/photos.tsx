@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 3,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  gridDate: { color: '#fff', fontSize: 8, fontWeight: FontWeight.semibold },
+  gridDate: { color: Colors.dark.white, fontSize: 8, fontWeight: FontWeight.semibold },
   gridPoseBadge: { backgroundColor: 'rgba(232,255,71,0.3)', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
   gridPoseText: { color: Colors.dark.accent, fontSize: 7, fontWeight: FontWeight.bold },
   selectedOverlay: {
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: '#1a1a1a', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: Colors.dark.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: Spacing.xxl, paddingBottom: 40,
   },
   sheetHandle: {
