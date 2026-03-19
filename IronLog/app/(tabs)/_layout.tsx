@@ -111,7 +111,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="nutrition"
         options={{
-          href: null as unknown as Href,
+          lazy: true,
+          tabBarIcon: ({ focused }) => <TabIcon icon={<NutritionIcon />} focused={focused} />,
         }}
       />
       <Tabs.Screen
