@@ -400,7 +400,7 @@ export default function GroupChatScreen() {
               />
               {isUploading && (
                 <View style={imageStyles.uploadOverlay}>
-                  <ActivityIndicator color=Colors.dark.white size="large" />
+                  <ActivityIndicator color={Colors.dark.white} size="large" />
                 </View>
               )}
             </TouchableOpacity>
@@ -657,7 +657,7 @@ export default function GroupChatScreen() {
         <View style={viewerStyles.overlay}>
           <TouchableOpacity style={viewerStyles.closeBtn} onPress={() => setViewerImage(null)}>
             <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-              <Path d="M18 6L6 18M6 6l12 12" stroke=Colors.dark.white strokeWidth={2.5} strokeLinecap="round" />
+              <Path d="M18 6L6 18M6 6l12 12" stroke={Colors.dark.white} strokeWidth={2.5} strokeLinecap="round" />
             </Svg>
           </TouchableOpacity>
           {viewerImage && (

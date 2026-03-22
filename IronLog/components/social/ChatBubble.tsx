@@ -66,7 +66,7 @@ export const ChatBubble = React.memo(({ message, isOwn, onImagePress }: Props) =
             <Image source={{ uri: mediaUrl }} style={styles.image} resizeMode="cover" />
             {isUploading && (
               <View style={styles.uploadOverlay}>
-                <ActivityIndicator color=Colors.dark.white size="large" />
+                <ActivityIndicator color={Colors.dark.white} size="large" />
               </View>
             )}
           </TouchableOpacity>
