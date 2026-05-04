@@ -608,6 +608,20 @@ export default function HomeScreen() {
           onProgramPress={() => router.push('/(tabs)/program' as Href)}
         />
 
+        {/* History link */}
+        {recentSessions.length > 0 && (
+          <TouchableOpacity
+            style={styles.historyLink}
+            onPress={() => router.push('/workout/history' as Href)}
+            activeOpacity={0.7}
+          >
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+              <Path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke={Colors.dark.accent} strokeWidth={1.5} strokeLinecap="round" />
+            </Svg>
+            <Text style={styles.historyLinkText}>View Full History →</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={{ height: 80 }} />
       </ScrollView>
 
@@ -1063,6 +1077,22 @@ const styles = StyleSheet.create({
   dayPickerProgramName: {
     color: Colors.dark.textSecondary,
     fontSize: FontSize.md,
+  },
+
+  // History link
+  historyLink: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 8,
+    paddingVertical: Spacing.lg,
+    marginHorizontal: Spacing.xxl,
+    marginBottom: Spacing.xl,
+  },
+  historyLinkText: {
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.semibold,
+    color: Colors.dark.accent,
   },
 
   // Month picker

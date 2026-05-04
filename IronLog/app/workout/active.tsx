@@ -12,6 +12,7 @@ import { ExerciseIcon, MUSCLE_GROUP_COLORS } from '@/components/exercise-icon'
 import * as db from '@/lib/database'
 import type { PersonalRecord } from '@/types'
 import Svg, { Path } from 'react-native-svg'
+import { OverloadSuggestion } from '@/components/workout/OverloadSuggestion'
 
 const TABS = ['Track', 'Overview', 'History', 'Notes'] as const
 type TabName = typeof TABS[number]
@@ -327,6 +328,16 @@ export default function ActiveWorkoutScreen() {
             </View>
 
             {/* Set cards — Caliber style */}
+            {/* Progressive overload suggestion — above first set */}
+            {user?.$id && (
+              <OverloadSuggestion
+                userId={user.$id}
+                exerciseId={currentExercise.exerciseId}
+                exerciseName={currentExercise.exerciseName}
+                currentWeight={currentExercise.sets[0]?.weight || currentExercise.sets[0]?.previousWeight || 0}
+                currentReps={currentExercise.sets[0]?.reps || currentExercise.sets[0]?.previousReps || 8}
+              />
+            )}
             {currentExercise.sets.map((set, i) => {
               const pct = set.isCompleted ? get1RMPercent(set.weight) : 0
               const isEditing = editingSet === i || !set.isCompleted
