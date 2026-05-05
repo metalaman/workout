@@ -58,6 +58,13 @@ const ProfileIcon = React.memo(() => (
   </Svg>
 ))
 
+const DiscoverIcon = React.memo(() => (
+  <Svg width={sz} height={sz} viewBox="0 0 24 24" fill="none">
+    <Circle cx="11" cy="11" r="8" stroke={sc} strokeWidth={1.8} />
+    <Path d="M21 21l-4.35-4.35" stroke={sc} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+))
+
 const tabStyles = StyleSheet.create({
   container: {
     alignItems: 'center',
@@ -106,6 +113,13 @@ export default function TabLayout() {
         options={{
           lazy: true,
           tabBarIcon: ({ focused }) => <TabIcon icon={<PlanIcon />} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="discover"
+        options={{
+          lazy: true,
+          tabBarIcon: ({ focused }) => <TabIcon icon={<DiscoverIcon />} focused={focused} />,
         }}
       />
       <Tabs.Screen
